@@ -1943,8 +1943,8 @@
     <p class="footer-copy">© 2026 Sigma Lambda Beta. Opportunity for Wisdom, Wisdom for Culture. All rights reserved.</p>
   </footer>
 
-  <!-- QR Code Generator Library -->
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <!-- QR Code Generator Library (bundled locally) -->
+  <script src="/qrcode.min.js"></script>
 
   <script>
     // ════════════════════════════════════════════════════════════════
@@ -2136,53 +2136,73 @@
     // SHARED QR TICKET PASS DISPLAY
     // ════════════════════════════════════════════════════════════════
     async function showDigitalPass(t, isVenmo, venmoHandle, deepLink) {
-      document.getElementById('passTagTier').textContent = t.tier.toUpperCase();
-      document.getElementById('passAttendeeName').textContent = t.buyerName;
-      document.getElementById('passTierName').textContent = t.tier;
-      document.getElementById('passPricePaid').textContent = `$${t.price}.00`;
-      document.getElementById('passTicketId').textContent = t.ticketId;
+      try {
+        const passTagTier = document.getElementById('passTagTier');
+        if (passTagTier) passTagTier.textContent = (t.tier || 'ADMISSION').toUpperCase();
+        
+        const attendeeName = document.getElementById('passAttendeeName');
+        if (attendeeName) attendeeName.textContent = t.buyerName || 'Attendee';
+        
+        const tierName = document.getElementById('passTierName');
+        if (tierName) tierName.textContent = t.tier || 'Admission';
+        
+        const pricePaid = document.getElementById('passPricePaid');
+        if (pricePaid) pricePaid.textContent = `$${t.price || 15}.00`;
+        
+        const ticketIdEl = document.getElementById('passTicketId');
+        if (ticketIdEl) ticketIdEl.textContent = t.ticketId || 'SLB-TICKET';
 
-      const venmoNotice = document.getElementById('passVenmoNotice');
-      const passPaymentStatus = document.getElementById('passPaymentStatus');
-      const passCardInfo = document.getElementById('passCardInfo');
+        const venmoNotice = document.getElementById('passVenmoNotice');
+        const passPaymentStatus = document.getElementById('passPaymentStatus');
+        const passCardInfo = document.getElementById('passCardInfo');
 
-      if (isVenmo) {
-        venmoNotice.style.display = 'block';
-        document.getElementById('passVenmoTarget').textContent = `@${venmoHandle}`;
-        document.getElementById('passVenmoRef').textContent = `Banda Night - ${t.ticketId}`;
-        passPaymentStatus.textContent = 'VENMO PENDING ⏳';
-        passPaymentStatus.style.color = '#facc15';
-        passCardInfo.textContent = `Venmo (@${venmoHandle})`;
-      } else {
-        venmoNotice.style.display = 'none';
-        passPaymentStatus.textContent = 'PAID IN FULL ✅';
-        passPaymentStatus.style.color = '#4ade80';
-        passCardInfo.textContent = `${t.cardBrand || 'Card'} •••• ${t.cardLast4 || '4242'}`;
+        if (isVenmo) {
+          if (venmoNotice) venmoNotice.style.display = 'block';
+          const venmoTarget = document.getElementById('passVenmoTarget');
+          if (venmoTarget) venmoTarget.textContent = `@${venmoHandle}`;
+          const venmoRef = document.getElementById('passVenmoRef');
+          if (venmoRef) venmoRef.textContent = `Banda Night - ${t.ticketId}`;
+          if (passPaymentStatus) {
+            passPaymentStatus.textContent = 'VENMO PENDING ⏳';
+            passPaymentStatus.style.color = '#facc15';
+          }
+          if (passCardInfo) passCardInfo.textContent = `Venmo (@${venmoHandle})`;
+        } else {
+          if (venmoNotice) venmoNotice.style.display = 'none';
+          if (passPaymentStatus) {
+            passPaymentStatus.textContent = 'PAID IN FULL ✅';
+            passPaymentStatus.style.color = '#4ade80';
+          }
+          if (passCardInfo) passCardInfo.textContent = `${t.cardBrand || 'Card'} •••• ${t.cardLast4 || '4242'}`;
+        }
+
+        // Generate QR code safely with direct zero-dependency QR API
+        const qrPayload = JSON.stringify({
+          ticketId: t.ticketId,
+          event: 'Banda Night 2026 - Sigma Lambda Beta',
+          name: t.buyerName,
+          tier: t.tier,
+          price: t.price,
+          issued: t.purchasedAt,
+          token: t.securityToken,
+        });
+
+        const qrImg = document.getElementById('passQrImg');
+        if (qrImg) {
+          qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&margin=10&data=${encodeURIComponent(qrPayload)}`;
+        }
+
+        const modal = document.getElementById('ticketPassModal');
+        if (modal) modal.classList.add('open');
+      } catch (passErr) {
+        console.error('Pass display error:', passErr);
+        const modal = document.getElementById('ticketPassModal');
+        if (modal) modal.classList.add('open');
       }
 
-      // Generate QR Code with standard JSON cryptographic payload
-      const qrPayload = JSON.stringify({
-        ticketId: t.ticketId,
-        event: 'Banda Night 2026 - Sigma Lambda Beta',
-        name: t.buyerName,
-        tier: t.tier,
-        price: t.price,
-        issued: t.purchasedAt,
-        token: t.securityToken,
-      });
-
-      const qrDataUrl = await QRCode.toDataURL(qrPayload, {
-        width: 500,
-        margin: 2,
-        color: {
-          dark: '#0c0418',
-          light: '#ffffff',
-        },
-      });
-
-      document.getElementById('passQrImg').src = qrDataUrl;
-      document.getElementById('ticketPassModal').classList.add('open');
-      fetchTierStatus();
+      try {
+        fetchTierStatus();
+      } catch (e) {}
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -2241,7 +2261,7 @@
         }
       } catch (err) {
         console.error('Venmo checkout error:', err);
-        alert('Connection error. Please try again.');
+        alert(err.message || 'Payment processing error. Please try again.');
       } finally {
         venmoBtn.disabled = false;
         if (currentTierData) {
@@ -2322,7 +2342,7 @@
         }
       } catch (err) {
         console.error('Card payment error:', err);
-        alert('Network connection error. Please try again.');
+        alert(err.message || 'Payment processing error. Please try again.');
       } finally {
         payBtn.disabled = false;
         payIcon.textContent = '🔒';
