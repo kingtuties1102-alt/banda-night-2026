@@ -185,7 +185,7 @@ const server = http.createServer(async (req, res) => {
   // --- API: Purchase (supports both card and Venmo) ---
   if (pathname === '/api/purchase' && req.method === 'POST') {
     const body = await parseBody(req);
-    const { name, email, phone, paymentMethod, cardNumber, cardExp, cardCvc, zip } = body;
+    const { name, email, phone, paymentMethod, cardNumber, cardExp, cardCvc, zip, tacoQty } = body;
 
     if (!name || !name.trim()) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -224,6 +224,12 @@ const server = http.createServer(async (req, res) => {
     const info = getCurrentTierInfo(db);
     const tier = info.currentTier;
 
+    // Taco add-on: $3 per taco (max 10 per order)
+    const TACO_PRICE = 3;
+    const tacosOrdered = Math.max(0, Math.min(10, parseInt(tacoQty, 10) || 0));
+    const tacoTotal = tacosOrdered * TACO_PRICE;
+    const totalPrice = tier.price + tacoTotal;
+
     const ticketId = 'SLB-' + crypto.randomBytes(6).toString('hex').toUpperCase();
     const securityToken = crypto.randomBytes(16).toString('hex');
 
@@ -235,6 +241,9 @@ const server = http.createServer(async (req, res) => {
       buyerPhone: (phone || '').trim(),
       tier: tier.name,
       price: tier.price,
+      tacosOrdered,
+      tacoTotal,
+      totalCharged: totalPrice,
       cardBrand: cardBrand || '',
       cardLast4: cardLast4 || '',
       purchasedAt: new Date().toISOString(),
@@ -272,7 +281,8 @@ const server = http.createServer(async (req, res) => {
 
     const venmoUser = db.config?.venmoUsername || VENMO_USERNAME;
     const venmoNote = `Banda Night - ${ticket.ticketId} - ${ticket.buyerName}`;
-    const venmoDeepLink = `https://venmo.com/${venmoUser}?txn=pay&amount=${tier.price}&note=${encodeURIComponent(venmoNote)}`;
+    const venmoAmount = ticket.totalCharged || ticket.price;
+    const venmoDeepLink = `https://venmo.com/${venmoUser}?txn=pay&amount=${venmoAmount}&note=${encodeURIComponent(venmoNote)}`;
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({
@@ -285,6 +295,9 @@ const server = http.createServer(async (req, res) => {
         buyerEmail: ticket.buyerEmail,
         tier: ticket.tier,
         price: ticket.price,
+        tacosOrdered: ticket.tacosOrdered,
+        tacoTotal: ticket.tacoTotal,
+        totalCharged: ticket.totalCharged,
         cardBrand: ticket.cardBrand,
         cardLast4: ticket.cardLast4,
         paymentStatus: ticket.paymentStatus,

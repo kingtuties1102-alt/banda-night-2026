@@ -1257,22 +1257,28 @@
       background: #ffffff;
       border-radius: 18px;
       padding: 1.25rem;
-      display: inline-flex;
+      display: flex;
       align-items: center;
       justify-content: center;
       margin: 0 auto 1.5rem;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 25px rgba(217, 70, 239, 0.35);
-      min-width: 240px;
-      min-height: 240px;
+      width: 240px;
+      height: 240px;
       box-sizing: border-box;
+      overflow: hidden;
     }
     .pass-qr-box img,
-    .pass-qr-box canvas {
-      width: 220px !important;
-      height: 220px !important;
-      max-width: 220px !important;
-      max-height: 220px !important;
+    .pass-qr-box canvas,
+    .pass-qr-box > div {
+      width: 200px !important;
+      height: 200px !important;
+      max-width: 200px !important;
+      max-height: 200px !important;
       display: block !important;
+      margin: 0 auto !important;
+      flex-shrink: 0;
+    }
+    .pass-qr-box table {
       margin: 0 auto !important;
     }
 
@@ -1671,6 +1677,26 @@
         </div>
       </div>
 
+      <!-- 🌮 TACO ADD-ON -->
+      <div style="background:linear-gradient(135deg, rgba(251,191,36,0.08) 0%, rgba(168,85,247,0.08) 100%); border:1px solid rgba(251,191,36,0.35); border-radius:16px; padding:1.1rem 1.25rem; margin-bottom:1.25rem;">
+        <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.65rem;">
+          <span style="font-size:1.5rem;">🌮</span>
+          <div>
+            <div style="font-weight:800; color:#facc15; font-size:0.95rem;">Add Tacos to Your Order!</div>
+            <div style="font-size:0.78rem; color:#94a3b8; line-height:1.3;">Authentic tacos ready at the event · <strong style="color:#fbbf24;">$3 each</strong></div>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+          <label style="font-size:0.82rem; color:#cbd5e1; font-weight:600;">How many tacos?</label>
+          <div style="display:flex; align-items:center; gap:0; background:rgba(8,2,18,0.7); border:1px solid rgba(251,191,36,0.4); border-radius:10px; overflow:hidden;">
+            <button type="button" onclick="changeTacoQty(-1)" style="background:none; border:none; color:#fbbf24; font-size:1.3rem; width:36px; height:36px; cursor:pointer; font-weight:800; line-height:1;">−</button>
+            <input type="number" id="tacoQty" value="0" min="0" max="10" readonly style="width:40px; text-align:center; background:none; border:none; color:#ffffff; font-size:1rem; font-weight:700; outline:none; padding:0;">
+            <button type="button" onclick="changeTacoQty(1)" style="background:none; border:none; color:#fbbf24; font-size:1.3rem; width:36px; height:36px; cursor:pointer; font-weight:800; line-height:1;">+</button>
+          </div>
+          <span id="tacoTotalDisplay" style="font-size:0.88rem; color:#4ade80; font-weight:700; display:none;">+$0 for tacos</span>
+        </div>
+      </div>
+
       <!-- VENMO PANEL -->
       <div id="venmoPanel" class="tab-panel active">
         <div class="venmo-instructions-card">
@@ -1915,6 +1941,10 @@
             <span class="pass-lbl">Amount</span>
             <span class="pass-val" id="passPricePaid">—</span>
           </div>
+          <div class="pass-row" id="passTacoRow" style="display:none;">
+            <span class="pass-lbl">🌮 Tacos</span>
+            <span class="pass-val" id="passTacoInfo" style="color:#facc15;">—</span>
+          </div>
           <div class="pass-row">
             <span class="pass-lbl">Payment Status</span>
             <span class="pass-val" id="passPaymentStatus" style="color:#4ade80;">PAID ✅</span>
@@ -2068,10 +2098,10 @@
 
         // Update checkout form tags
         document.getElementById('checkoutTierTag').textContent = `Purchasing: ${currentTier.name} ($${currentTier.price}.00)`;
-        document.getElementById('btnPayText').textContent = `Pay $${currentTier.price}.00 with Card · Get QR Ticket`;
-        document.getElementById('btnVenmoText').textContent = `Pay $${currentTier.price}.00 via Venmo & Get QR Pass`;
         const venmoHandle = data.venmoUsername || 'Betas_UCSB';
         document.getElementById('displayVenmoHandle').textContent = `@${venmoHandle}`;
+        // Update button totals (respects taco qty)
+        updateCheckoutTotals();
 
       } catch (err) {
         console.error('Error fetching tier status:', err);
@@ -2182,7 +2212,17 @@
         if (tierName) tierName.textContent = t.tier || 'Admission';
         
         const pricePaid = document.getElementById('passPricePaid');
-        if (pricePaid) pricePaid.textContent = `$${t.price || 15}.00`;
+        if (pricePaid) pricePaid.textContent = `$${t.totalCharged || t.price || 15}.00`;
+
+        // Show taco info if ordered
+        const tacoRow = document.getElementById('passTacoRow');
+        const tacoInfo = document.getElementById('passTacoInfo');
+        if (t.tacosOrdered && t.tacosOrdered > 0 && tacoRow && tacoInfo) {
+          tacoRow.style.display = 'flex';
+          tacoInfo.textContent = `${t.tacosOrdered} taco${t.tacosOrdered > 1 ? 's' : ''} (+$${t.tacoTotal || (t.tacosOrdered * 3)})`;
+        } else if (tacoRow) {
+          tacoRow.style.display = 'none';
+        }
         
         const ticketIdEl = document.getElementById('passTicketId');
         if (ticketIdEl) ticketIdEl.textContent = t.ticketId || 'SLB-TICKET';
@@ -2229,37 +2269,45 @@
           token: t.securityToken,
         });
 
-        // Render QR Code with local in-browser generator + fallback
+        // Render QR Code — single clean square box
         const qrBox = document.getElementById('passQrBox');
         if (qrBox) {
           qrBox.innerHTML = '';
-          let rendered = false;
 
+          // Try local library first
+          let rendered = false;
           if (typeof QRCode === 'function') {
             try {
-              new QRCode(qrBox, {
+              // Wrap in a fixed-size container to prevent double canvas+img
+              const qrWrap = document.createElement('div');
+              qrWrap.style.cssText = 'width:200px;height:200px;display:block;overflow:hidden;';
+              qrBox.appendChild(qrWrap);
+              new QRCode(qrWrap, {
                 text: qrPayload,
-                width: 220,
-                height: 220,
+                width: 200,
+                height: 200,
                 colorDark: '#0c0418',
                 colorLight: '#ffffff',
                 correctLevel: QRCode.CorrectLevel.M,
               });
+              // Remove any duplicate img the library may add (keep only canvas or img, not both)
+              setTimeout(() => {
+                const canv = qrWrap.querySelector('canvas');
+                const img = qrWrap.querySelector('img');
+                if (canv && img) img.remove(); // remove duplicate
+              }, 100);
               rendered = true;
             } catch (err) {
               console.warn('QRCode render error:', err);
+              qrBox.innerHTML = '';
             }
           }
 
-          if (!rendered || !qrBox.firstElementChild) {
+          if (!rendered) {
             const fallbackImg = document.createElement('img');
-            fallbackImg.id = 'passQrImg';
-            fallbackImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&margin=10&data=${encodeURIComponent(qrPayload)}`;
+            fallbackImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=8&data=${encodeURIComponent(qrPayload)}`;
             fallbackImg.alt = `Ticket QR Code - ${t.ticketId}`;
-            fallbackImg.style.width = '220px';
-            fallbackImg.style.height = '220px';
-            fallbackImg.style.display = 'block';
-            fallbackImg.style.margin = '0 auto';
+            fallbackImg.style.cssText = 'width:200px;height:200px;display:block;margin:0 auto;';
             qrBox.appendChild(fallbackImg);
           }
         }
@@ -2287,12 +2335,49 @@
     }
 
     // ════════════════════════════════════════════════════════════════
+    // TACO QUANTITY HELPER
+    // ════════════════════════════════════════════════════════════════
+    function changeTacoQty(delta) {
+      const input = document.getElementById('tacoQty');
+      const display = document.getElementById('tacoTotalDisplay');
+      if (!input) return;
+      let qty = parseInt(input.value, 10) || 0;
+      qty = Math.max(0, Math.min(10, qty + delta));
+      input.value = qty;
+      if (display) {
+        if (qty > 0) {
+          display.textContent = `+$${qty * 3} for tacos`;
+          display.style.display = 'inline';
+        } else {
+          display.style.display = 'none';
+        }
+      }
+      // Update button text to reflect total
+      updateCheckoutTotals();
+    }
+
+    function getTacoQty() {
+      return Math.max(0, Math.min(10, parseInt(document.getElementById('tacoQty')?.value || '0', 10)));
+    }
+
+    function updateCheckoutTotals() {
+      if (!currentTierData) return;
+      const basePrice = currentTierData.currentTier.price;
+      const tacos = getTacoQty();
+      const total = basePrice + tacos * 3;
+      const suffix = tacos > 0 ? ` + ${tacos} 🌮` : '';
+      document.getElementById('btnPayText').textContent = `Pay $${total}.00${suffix} with Card · Get QR Ticket`;
+      document.getElementById('btnVenmoText').textContent = `Pay $${total}.00${suffix} via Venmo & Get QR Pass`;
+    }
+
+    // ════════════════════════════════════════════════════════════════
     // VENMO CHECKOUT HANDLER
     // ════════════════════════════════════════════════════════════════
     async function handleVenmoCheckout() {
       const name = document.getElementById('attendeeName').value.trim();
       const email = document.getElementById('attendeeEmail').value.trim();
       const phone = document.getElementById('attendeePhone').value.trim();
+      const tacoQty = getTacoQty();
 
       if (!name) {
         alert('Please enter your full name.');
@@ -2319,6 +2404,7 @@
             email,
             phone,
             paymentMethod: 'venmo',
+            tacoQty,
           }),
         });
 
@@ -2329,8 +2415,10 @@
           document.getElementById('attendeeName').value = '';
           document.getElementById('attendeeEmail').value = '';
           document.getElementById('attendeePhone').value = '';
+          document.getElementById('tacoQty').value = '0';
+          document.getElementById('tacoTotalDisplay').style.display = 'none';
 
-          // Show QR Ticket modal immediately
+          // Show QR Ticket modal — QR appears because payment was initiated
           await showDigitalPass(data.ticket, true, data.venmoUsername || currentTierData?.venmoUsername || 'Betas_UCSB', data.venmoDeepLink);
 
           // Open Venmo app or web payment link in new window if possible
@@ -2349,11 +2437,7 @@
         alert(err.message || 'Payment processing error. Please try again.');
       } finally {
         venmoBtn.disabled = false;
-        if (currentTierData) {
-          venmoText.textContent = `Pay $${currentTierData.currentTier.price}.00 via Venmo & Get QR Pass`;
-        } else {
-          venmoText.textContent = 'Pay via Venmo & Get QR Pass';
-        }
+        updateCheckoutTotals();
       }
     }
 
@@ -2370,6 +2454,7 @@
       const cardExp = document.getElementById('cardExp').value;
       const cardCvc = document.getElementById('cardCvc').value;
       const zip = document.getElementById('cardZip').value;
+      const tacoQty = getTacoQty();
 
       if (!name) {
         alert('Please enter your full name.');
@@ -2407,11 +2492,13 @@
             cardExp,
             cardCvc,
             zip,
+            tacoQty,
           }),
         });
 
         const data = await res.json();
 
+        // Only show QR pass after server confirms payment success
         if (data.success && data.ticket) {
           await showDigitalPass(data.ticket, false, '', null);
 
@@ -2419,6 +2506,8 @@
           document.getElementById('attendeeName').value = '';
           document.getElementById('attendeeEmail').value = '';
           document.getElementById('attendeePhone').value = '';
+          document.getElementById('tacoQty').value = '0';
+          document.getElementById('tacoTotalDisplay').style.display = 'none';
           document.getElementById('cardPaymentForm').reset();
           brandBadge.textContent = 'Card';
           brandBadge.style.color = 'var(--purple-400)';
@@ -2431,11 +2520,7 @@
       } finally {
         payBtn.disabled = false;
         payIcon.textContent = '🔒';
-        if (currentTierData) {
-          payText.textContent = `Pay $${currentTierData.currentTier.price}.00 with Card · Get QR Ticket`;
-        } else {
-          payText.textContent = 'Pay with Card · Get QR Ticket';
-        }
+        updateCheckoutTotals();
       }
     }
 
