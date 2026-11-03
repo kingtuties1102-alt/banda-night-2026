@@ -1709,7 +1709,7 @@
           <div class="form-full">
             <label class="form-label" for="cardNumber">Card Number</label>
             <div class="input-wrapper">
-              <input type="text" id="cardNumber" class="form-input" placeholder="4242 4242 4242 4242" maxlength="24" autocomplete="cc-number">
+              <input type="text" inputmode="numeric" id="cardNumber" class="form-input" placeholder="4242 4242 4242 4242" autocomplete="cc-number">
               <span class="card-brand-badge" id="cardBrandBadge">Card</span>
             </div>
           </div>
@@ -1719,13 +1719,13 @@
             <div>
               <label class="form-label" for="cardExp">Expires (MM/YY)</label>
               <div class="input-wrapper">
-                <input type="text" id="cardExp" class="form-input" placeholder="MM / YY" maxlength="9" autocomplete="cc-exp">
+                <input type="text" inputmode="numeric" id="cardExp" class="form-input" placeholder="MM / YY" autocomplete="cc-exp">
               </div>
             </div>
             <div>
               <label class="form-label" for="cardCvc">Security Code (CVC)</label>
               <div class="input-wrapper">
-                <input type="text" id="cardCvc" class="form-input" placeholder="CVC" maxlength="4" autocomplete="cc-csc">
+                <input type="text" inputmode="numeric" id="cardCvc" class="form-input" placeholder="CVC" maxlength="6" autocomplete="cc-csc">
               </div>
             </div>
           </div>
@@ -1733,7 +1733,7 @@
           <div class="form-full">
             <label class="form-label" for="cardZip">Billing ZIP Code</label>
             <div class="input-wrapper">
-              <input type="text" id="cardZip" class="form-input" placeholder="93106" maxlength="10" autocomplete="postal-code">
+              <input type="text" id="cardZip" class="form-input" placeholder="93106" autocomplete="postal-code">
             </div>
           </div>
 
@@ -2083,7 +2083,7 @@
 
     cardInput.addEventListener('input', (e) => {
       let value = e.target.value.replace(/\D/g, '');
-      if (value.length > 19) value = value.slice(0, 19);
+      if (value.length > 24) value = value.slice(0, 24);
 
       // Detect brand
       if (/^4/.test(value)) {
@@ -2103,24 +2103,15 @@
         brandBadge.style.color = 'var(--purple-400)';
       }
 
-      // Format card number with clean single space
-      if (/^3[47]/.test(value)) {
-        // Amex: 4 - 6 - 5
-        const p1 = value.slice(0, 4);
-        const p2 = value.slice(4, 10);
-        const p3 = value.slice(10, 15);
-        e.target.value = [p1, p2, p3].filter(Boolean).join(' ');
-      } else {
-        // 4 digits per block
-        e.target.value = value.match(/.{1,4}/g)?.join(' ') || value;
-      }
+      // Group into 4 digits blocks with single space
+      e.target.value = value.match(/.{1,4}/g)?.join(' ') || value;
     });
 
-    // Expiration date formatting MM / YY
+    // Expiration date formatting MM / YY or MM / YYYY
     const expInput = document.getElementById('cardExp');
     expInput.addEventListener('input', (e) => {
       let val = e.target.value.replace(/\D/g, '');
-      if (val.length > 4) val = val.slice(0, 4);
+      if (val.length > 6) val = val.slice(0, 6);
       if (val.length >= 3) {
         e.target.value = val.slice(0, 2) + ' / ' + val.slice(2);
       } else {

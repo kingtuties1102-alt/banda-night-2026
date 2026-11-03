@@ -154,6 +154,9 @@ const server = http.createServer(async (req, res) => {
 
   // Add standard security & caching headers
   res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
 
   // --- API: Tier & Status ---
   if (pathname === '/api/tier' && req.method === 'GET') {
