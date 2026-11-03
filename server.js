@@ -159,6 +159,14 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
 
+  // Helper to verify admin authorization header
+  function checkAdminAuth(req) {
+    const db = loadDB();
+    const activePin = (process.env.ADMIN_PIN || db.config?.adminPin || 'betas1986').trim();
+    const clientPin = (req.headers['x-admin-pin'] || '').trim();
+    return Boolean(clientPin && clientPin === activePin);
+  }
+
   // --- API: Tier & Status ---
   if (pathname === '/api/tier' && req.method === 'GET') {
     const db = loadDB();
@@ -289,6 +297,11 @@ const server = http.createServer(async (req, res) => {
 
   // --- API: Door Check-in Verification ---
   if (pathname === '/api/checkin' && req.method === 'POST') {
+    if (!checkAdminAuth(req)) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Unauthorized. Chapter passcode required.' }));
+    }
+
     const body = await parseBody(req);
     let { ticketId } = body;
 
@@ -352,6 +365,30 @@ const server = http.createServer(async (req, res) => {
     }));
   }
 
+  // --- API: Admin Passcode Login / Verification ---
+  if (pathname === '/api/admin/verify-pin' && req.method === 'POST') {
+    const body = await parseBody(req);
+    const db = loadDB();
+    const activePin = (process.env.ADMIN_PIN || db.config?.adminPin || 'betas1986').trim();
+    const submittedPin = (body.pin || '').trim();
+
+    if (submittedPin && submittedPin === activePin) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ success: true, message: 'Authenticated' }));
+    } else {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ success: false, error: 'Incorrect chapter passcode' }));
+    }
+  }
+
+  // Intercept any other /api/admin/* endpoint and require valid PIN
+  if (pathname.startsWith('/api/admin/')) {
+    if (!checkAdminAuth(req)) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Unauthorized. Valid chapter passcode required.' }));
+    }
+  }
+
   // --- API: Admin Data ---
   if (pathname === '/api/admin/tickets' && req.method === 'GET') {
     const db = loadDB();
@@ -385,6 +422,7 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({
       venmoUsername: venmoUser,
+      adminPinConfigured: Boolean(db.config?.adminPin || process.env.ADMIN_PIN),
       email: {
         provider: emailConfig.provider || (emailConfig.resendApiKey ? 'resend' : (emailConfig.smtpHost ? 'smtp' : 'simulated')),
         resendApiKey: emailConfig.resendApiKey ? '••••••••' + emailConfig.resendApiKey.slice(-4) : '',
@@ -405,6 +443,9 @@ const server = http.createServer(async (req, res) => {
       const clean = body.venmoUsername.trim().replace(/^@/, '');
       db.config.venmoUsername = clean;
       VENMO_USERNAME = clean;
+    }
+    if (typeof body.adminPin === 'string' && body.adminPin.trim().length >= 4) {
+      db.config.adminPin = body.adminPin.trim();
     }
     if (body.email && typeof body.email === 'object') {
       if (!db.config.email) db.config.email = {};
@@ -463,6 +504,11 @@ const server = http.createServer(async (req, res) => {
 
   // --- API: Resend / Forward Receipt Email ---
   if (pathname === '/api/send-receipt' && req.method === 'POST') {
+    if (!checkAdminAuth(req)) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Unauthorized. Valid chapter passcode required.' }));
+    }
+
     const body = await parseBody(req);
     const { ticketId, recipientEmail } = body;
 

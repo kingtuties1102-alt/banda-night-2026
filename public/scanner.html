@@ -160,9 +160,33 @@
 </head>
 <body>
 
+  <!-- Passcode Lock Overlay for Scanner -->
+  <div id="pinLockOverlay" style="position:fixed; inset:0; z-index:999999; background:radial-gradient(circle at 50% 20%, #20073b 0%, #05010a 85%); display:flex; align-items:center; justify-content:center; padding:1.5rem;">
+    <div style="background:linear-gradient(145deg, #150628 0%, #0d031a 50%, #080112 100%); border:2px solid #a855f7; border-radius:24px; max-width:420px; width:100%; padding:2.5rem 2rem; text-align:center; box-shadow:0 30px 80px rgba(0,0,0,0.9), 0 0 50px rgba(168,85,247,0.35);">
+      <div style="font-size:2.8rem; margin-bottom:0.75rem;">🔍</div>
+      <div style="font-size:0.75rem; letter-spacing:2px; color:#c084fc; font-weight:800; text-transform:uppercase; margin-bottom:0.4rem;">
+        Sigma Lambda Beta · Sigma Gamma
+      </div>
+      <h2 style="font-family:'Cinzel',serif; font-size:1.6rem; color:#ffffff; margin-bottom:0.6rem;">
+        Door Scanner Access
+      </h2>
+      <p style="font-size:0.85rem; color:#94a3b8; margin-bottom:1.75rem; line-height:1.45;">
+        This entrance check-in tool is restricted to authorized chapter event staff. Enter the chapter passcode to unlock.
+      </p>
+
+      <form onsubmit="handleScannerLogin(event)">
+        <input type="password" id="scannerPinInput" placeholder="Chapter Passcode" autofocus style="width:100%; padding:0.9rem 1.25rem; background:rgba(8,2,18,0.9); border:2px solid #a855f7; border-radius:12px; color:white; font-size:1.1rem; text-align:center; letter-spacing:3px; outline:none; margin-bottom:1rem;">
+        <div id="pinErrorMsg" style="color:#ef4444; font-size:0.82rem; margin-bottom:1rem; display:none;"></div>
+        <button type="submit" id="btnUnlockScanner" style="width:100%; padding:0.9rem; background:linear-gradient(135deg, #9333ea, #d946ef); border:none; border-radius:12px; color:white; font-weight:800; font-size:1rem; cursor:pointer; box-shadow:0 4px 20px rgba(168,85,247,0.4);">
+          Unlock Scanner
+        </button>
+      </form>
+    </div>
+  </div>
+
   <div class="header-tag">Sigma Lambda Beta · Sigma Gamma Chapter</div>
   <h1>Entrance Door Scanner</h1>
-  <p class="sub">Banda Night 2026 &nbsp;·&nbsp; <a href="/">← Event Page</a> &nbsp;·&nbsp; <a href="/admin.html">Dashboard 📊</a></p>
+  <p class="sub">Banda Night 2026 &nbsp;·&nbsp; <a href="/">← Public Site</a> &nbsp;·&nbsp; <a href="/admin.html">Dashboard 📊</a> &nbsp;·&nbsp; <a href="javascript:logoutScanner()" style="color:#f87171;">🔒 Lock</a></p>
 
   <div class="scanner-box">
     
@@ -173,7 +197,7 @@
 
     <!-- Manual Code Entry -->
     <div class="input-row">
-      <input type="text" id="manualTicketInput" placeholder="Scan or enter SLB-XXXXXX..." autofocus>
+      <input type="text" id="manualTicketInput" placeholder="Scan or enter SLB-XXXXXX...">
       <button class="btn-checkin" onclick="submitCheckin()">Check In</button>
     </div>
 
@@ -187,6 +211,92 @@
   </div>
 
   <script>
+    let html5QrCode = null;
+
+    function getAdminPin() {
+      return sessionStorage.getItem('slb_admin_pin') || '';
+    }
+
+    async function verifyPin(pin) {
+      try {
+        const res = await fetch('/api/admin/verify-pin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin: (pin || '').trim() })
+        });
+        return res.ok;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    async function handleScannerLogin(e) {
+      if (e) e.preventDefault();
+      const input = document.getElementById('scannerPinInput');
+      const errEl = document.getElementById('pinErrorMsg');
+      const btn = document.getElementById('btnUnlockScanner');
+      const pin = input.value.trim();
+
+      if (!pin) {
+        errEl.textContent = 'Please enter the chapter passcode.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Verifying...';
+      errEl.style.display = 'none';
+
+      const ok = await verifyPin(pin);
+      if (ok) {
+        sessionStorage.setItem('slb_admin_pin', pin);
+        document.getElementById('pinLockOverlay').style.display = 'none';
+        startScanner();
+      } else {
+        errEl.textContent = 'Incorrect chapter passcode. Access denied.';
+        errEl.style.display = 'block';
+        input.value = '';
+        input.focus();
+      }
+      btn.disabled = false;
+      btn.textContent = 'Unlock Scanner';
+    }
+
+    function logoutScanner() {
+      sessionStorage.removeItem('slb_admin_pin');
+      if (html5QrCode) {
+        try { html5QrCode.stop(); } catch (e) {}
+        html5QrCode = null;
+      }
+      document.getElementById('pinLockOverlay').style.display = 'flex';
+      const input = document.getElementById('scannerPinInput');
+      if (input) {
+        input.value = '';
+        setTimeout(() => input.focus(), 150);
+      }
+      const errEl = document.getElementById('pinErrorMsg');
+      if (errEl) errEl.style.display = 'none';
+    }
+
+    function startScanner() {
+      if (html5QrCode) return;
+      try {
+        html5QrCode = new Html5Qrcode("reader");
+        html5QrCode.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          (decodedText) => {
+            processCode(decodedText);
+          },
+          () => {}
+        ).catch(() => {
+          document.getElementById('reader').style.display = 'none';
+        });
+      } catch (e) {
+        document.getElementById('reader').style.display = 'none';
+      }
+    }
+
     async function processCode(code) {
       if (!code) return;
       
@@ -198,14 +308,28 @@
         }
       } catch (e) {}
 
+      const pin = getAdminPin();
+      if (!pin) {
+        logoutScanner();
+        return;
+      }
+
       try {
         const res = await fetch('/api/checkin', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-admin-pin': pin
+          },
           body: JSON.stringify({ ticketId }),
         });
-        const data = await res.json();
 
+        if (res.status === 401) {
+          logoutScanner();
+          return;
+        }
+
+        const data = await res.json();
         const box = document.getElementById('scanResult');
         box.className = 'scan-result';
 
@@ -249,22 +373,25 @@
       if (e.key === 'Enter') submitCheckin();
     });
 
-    // Initialize HTML5 Camera Scanner if supported
-    try {
-      const html5QrCode = new Html5Qrcode("reader");
-      html5QrCode.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        (decodedText) => {
-          processCode(decodedText);
-        },
-        () => {}
-      ).catch(() => {
-        document.getElementById('reader').style.display = 'none';
-      });
-    } catch (e) {
-      document.getElementById('reader').style.display = 'none';
-    }
+    // Check session authentication on load
+    (async function initScanner() {
+      const pin = getAdminPin();
+      if (pin) {
+        const ok = await verifyPin(pin);
+        if (ok) {
+          document.getElementById('pinLockOverlay').style.display = 'none';
+          startScanner();
+          return;
+        } else {
+          sessionStorage.removeItem('slb_admin_pin');
+        }
+      }
+      document.getElementById('pinLockOverlay').style.display = 'flex';
+      setTimeout(() => {
+        const inp = document.getElementById('scannerPinInput');
+        if (inp) inp.focus();
+      }, 150);
+    })();
   </script>
 
 </body>

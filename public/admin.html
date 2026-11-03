@@ -428,14 +428,39 @@
 </head>
 <body>
 
+  <!-- PIN Passcode Lock Overlay -->
+  <div id="pinLockOverlay" style="position:fixed; inset:0; z-index:999999; background:radial-gradient(circle at 50% 20%, #20073b 0%, #05010a 85%); display:flex; align-items:center; justify-content:center; padding:1.5rem;">
+    <div style="background:linear-gradient(145deg, #150628 0%, #0d031a 50%, #080112 100%); border:2px solid #a855f7; border-radius:24px; max-width:420px; width:100%; padding:2.5rem 2rem; text-align:center; box-shadow:0 30px 80px rgba(0,0,0,0.9), 0 0 50px rgba(168,85,247,0.35);">
+      <div style="font-size:2.8rem; margin-bottom:0.75rem;">🔒</div>
+      <div style="font-size:0.75rem; letter-spacing:2px; color:#c084fc; font-weight:800; text-transform:uppercase; margin-bottom:0.4rem;">
+        Sigma Lambda Beta · Sigma Gamma
+      </div>
+      <h2 style="font-family:'Cinzel',serif; font-size:1.6rem; color:#ffffff; margin-bottom:0.6rem;">
+        Organizer Access
+      </h2>
+      <p style="font-size:0.85rem; color:#94a3b8; margin-bottom:1.75rem; line-height:1.45;">
+        This portal is restricted to authorized chapter brothers and event organizers. Please enter the chapter passcode.
+      </p>
+
+      <form onsubmit="handleAdminLogin(event)">
+        <input type="password" id="adminPinInput" placeholder="Chapter Passcode" autofocus style="width:100%; padding:0.9rem 1.25rem; background:rgba(8,2,18,0.9); border:2px solid #a855f7; border-radius:12px; color:white; font-size:1.1rem; text-align:center; letter-spacing:3px; outline:none; margin-bottom:1rem;">
+        <div id="pinErrorMsg" style="color:#ef4444; font-size:0.82rem; margin-bottom:1rem; display:none;"></div>
+        <button type="submit" id="btnUnlock" style="width:100%; padding:0.9rem; background:linear-gradient(135deg, #9333ea, #d946ef); border:none; border-radius:12px; color:white; font-weight:800; font-size:1rem; cursor:pointer; box-shadow:0 4px 20px rgba(168,85,247,0.4);">
+          Unlock Dashboard
+        </button>
+      </form>
+    </div>
+  </div>
+
   <div class="top-bar">
     <div>
       <div class="page-tag">Sigma Lambda Beta · Sigma Gamma Chapter</div>
       <h1>Banda Night 2026 Organizer Dashboard</h1>
     </div>
     <div class="nav-links">
-      <a href="/">← Event Page</a>
+      <a href="/">← Public Site</a>
       <a href="/scanner.html">Door Scanner 🔍</a>
+      <button onclick="logoutAdmin()" style="background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.4); color:#fca5a5; padding:0.5rem 0.9rem; border-radius:8px; font-weight:700; font-size:0.8rem; cursor:pointer;">🔒 Lock</button>
     </div>
   </div>
 
@@ -476,6 +501,22 @@
         <button class="btn-venmo-save" onclick="saveVenmoConfig()">Save Username</button>
       </div>
       <div id="venmoSaveStatus" class="save-status"></div>
+    </div>
+  </div>
+
+  <!-- Chapter Security & Passcode Box -->
+  <div class="venmo-settings-box" style="margin-bottom: 2rem; border-color: rgba(168, 85, 247, 0.4);">
+    <div class="venmo-settings-info">
+      <h3>🔐 Chapter Security & Passcode</h3>
+      <p>Manage the secret chapter passcode that locks this Dashboard and the Door Scanner. Default is <code style="color:#e879f9; background:rgba(255,255,255,0.1); padding:0.15rem 0.4rem; border-radius:4px;">betas1986</code>.</p>
+    </div>
+    <div>
+      <div class="venmo-settings-input-group">
+        <span class="venmo-at">🔑</span>
+        <input type="password" id="adminPinChangeInput" placeholder="New Passcode (min 4 chars)" autocomplete="off">
+        <button class="btn-venmo-save" onclick="savePasscodeConfig()">Update Passcode</button>
+      </div>
+      <div id="pinSaveStatus" class="save-status"></div>
     </div>
   </div>
 
@@ -588,6 +629,67 @@
     let allTickets = [];
     let currentEmailProvider = 'resend';
 
+    function getAdminPin() {
+      return sessionStorage.getItem('slb_admin_pin') || '';
+    }
+
+    async function verifyPin(pin) {
+      try {
+        const res = await fetch('/api/admin/verify-pin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin: (pin || '').trim() })
+        });
+        return res.ok;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    async function handleAdminLogin(e) {
+      if (e) e.preventDefault();
+      const input = document.getElementById('adminPinInput');
+      const errEl = document.getElementById('pinErrorMsg');
+      const btn = document.getElementById('btnUnlock');
+      const pin = input.value.trim();
+
+      if (!pin) {
+        errEl.textContent = 'Please enter the chapter passcode.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Verifying...';
+      errEl.style.display = 'none';
+
+      const ok = await verifyPin(pin);
+      if (ok) {
+        sessionStorage.setItem('slb_admin_pin', pin);
+        document.getElementById('pinLockOverlay').style.display = 'none';
+        fetchDashboardData();
+      } else {
+        errEl.textContent = 'Incorrect chapter passcode. Access denied.';
+        errEl.style.display = 'block';
+        input.value = '';
+        input.focus();
+      }
+      btn.disabled = false;
+      btn.textContent = 'Unlock Dashboard';
+    }
+
+    function logoutAdmin() {
+      sessionStorage.removeItem('slb_admin_pin');
+      document.getElementById('pinLockOverlay').style.display = 'flex';
+      const input = document.getElementById('adminPinInput');
+      if (input) {
+        input.value = '';
+        setTimeout(() => input.focus(), 150);
+      }
+      const errEl = document.getElementById('pinErrorMsg');
+      if (errEl) errEl.style.display = 'none';
+    }
+
     function setProviderTab(provider) {
       currentEmailProvider = provider;
       document.getElementById('tabResend').classList.toggle('active', provider === 'resend');
@@ -597,8 +699,20 @@
     }
 
     async function fetchDashboardData() {
+      const pin = getAdminPin();
+      if (!pin) {
+        logoutAdmin();
+        return;
+      }
+
       try {
-        const res = await fetch('/api/admin/tickets');
+        const res = await fetch('/api/admin/tickets', {
+          headers: { 'x-admin-pin': pin }
+        });
+        if (res.status === 401) {
+          logoutAdmin();
+          return;
+        }
         const data = await res.json();
         allTickets = data.tickets || [];
 
@@ -627,7 +741,13 @@
 
         // Fetch config details for email settings
         try {
-          const cfgRes = await fetch('/api/admin/config');
+          const cfgRes = await fetch('/api/admin/config', {
+            headers: { 'x-admin-pin': pin }
+          });
+          if (cfgRes.status === 401) {
+            logoutAdmin();
+            return;
+          }
           const cfgData = await cfgRes.json();
           if (cfgData.email) {
             const em = cfgData.email;
@@ -668,7 +788,7 @@
             }
           }
         } catch (cfgErr) {
-          console.error('Error fetching email config:', cfgErr);
+          console.error('Error fetching config:', cfgErr);
         }
 
         renderTable(allTickets);
@@ -693,9 +813,16 @@
       try {
         const res = await fetch('/api/admin/config', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-admin-pin': getAdminPin()
+          },
           body: JSON.stringify({ venmoUsername: username }),
         });
+        if (res.status === 401) {
+          logoutAdmin();
+          return;
+        }
         const data = await res.json();
         if (data.success) {
           statusEl.textContent = `✅ Saved as @${data.venmoUsername}!`;
@@ -703,6 +830,50 @@
           setTimeout(() => { statusEl.textContent = ''; }, 4000);
         } else {
           statusEl.textContent = '❌ Failed to save';
+          statusEl.style.color = '#f87171';
+        }
+      } catch (e) {
+        statusEl.textContent = '❌ Connection error';
+        statusEl.style.color = '#f87171';
+      }
+    }
+
+    async function savePasscodeConfig() {
+      const pinInput = document.getElementById('adminPinChangeInput');
+      const newPin = pinInput.value.trim();
+      const statusEl = document.getElementById('pinSaveStatus');
+
+      if (!newPin || newPin.length < 4) {
+        statusEl.textContent = '⚠️ Passcode must be at least 4 characters';
+        statusEl.style.color = '#f87171';
+        return;
+      }
+
+      statusEl.textContent = 'Saving new passcode...';
+      statusEl.style.color = '#94a3b8';
+
+      try {
+        const res = await fetch('/api/admin/config', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-pin': getAdminPin()
+          },
+          body: JSON.stringify({ adminPin: newPin })
+        });
+        if (res.status === 401) {
+          logoutAdmin();
+          return;
+        }
+        const data = await res.json();
+        if (data.success) {
+          sessionStorage.setItem('slb_admin_pin', newPin);
+          statusEl.textContent = '✅ Chapter passcode updated!';
+          statusEl.style.color = '#4ade80';
+          pinInput.value = '';
+          setTimeout(() => { statusEl.textContent = ''; }, 4000);
+        } else {
+          statusEl.textContent = '❌ Failed to update passcode';
           statusEl.style.color = '#f87171';
         }
       } catch (e) {
@@ -729,9 +900,16 @@
       try {
         const res = await fetch('/api/admin/config', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-admin-pin': getAdminPin()
+          },
           body: JSON.stringify({ email: emailPayload }),
         });
+        if (res.status === 401) {
+          logoutAdmin();
+          return;
+        }
         const data = await res.json();
         if (data.success) {
           statusEl.textContent = '✅ Email settings saved!';
@@ -763,9 +941,16 @@
       try {
         const res = await fetch('/api/admin/test-email', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-admin-pin': getAdminPin()
+          },
           body: JSON.stringify({ toEmail }),
         });
+        if (res.status === 401) {
+          logoutAdmin();
+          return;
+        }
         const data = await res.json();
 
         if (data.success) {
@@ -788,9 +973,16 @@
       try {
         const res = await fetch('/api/send-receipt', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-admin-pin': getAdminPin()
+          },
           body: JSON.stringify({ ticketId, recipientEmail: target }),
         });
+        if (res.status === 401) {
+          logoutAdmin();
+          return;
+        }
         const data = await res.json();
         if (data.success) {
           alert(`✅ Ticket receipt successfully sent to ${target}!`);
@@ -809,9 +1001,16 @@
       try {
         const res = await fetch('/api/admin/confirm-venmo', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-admin-pin': getAdminPin()
+          },
           body: JSON.stringify({ ticketId }),
         });
+        if (res.status === 401) {
+          logoutAdmin();
+          return;
+        }
         const data = await res.json();
         if (data.success) {
           fetchDashboardData();
@@ -830,9 +1029,16 @@
       try {
         const res = await fetch('/api/admin/refund', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-admin-pin': getAdminPin()
+          },
           body: JSON.stringify({ ticketId }),
         });
+        if (res.status === 401) {
+          logoutAdmin();
+          return;
+        }
         const data = await res.json();
         if (data.success) {
           fetchDashboardData();
@@ -942,8 +1148,26 @@
       a.click();
     }
 
-    fetchDashboardData();
-    setInterval(fetchDashboardData, 15000);
+    // Check session authentication on load
+    (async function initDashboard() {
+      const pin = getAdminPin();
+      if (pin) {
+        const ok = await verifyPin(pin);
+        if (ok) {
+          document.getElementById('pinLockOverlay').style.display = 'none';
+          fetchDashboardData();
+          setInterval(fetchDashboardData, 15000);
+          return;
+        } else {
+          sessionStorage.removeItem('slb_admin_pin');
+        }
+      }
+      document.getElementById('pinLockOverlay').style.display = 'flex';
+      setTimeout(() => {
+        const inp = document.getElementById('adminPinInput');
+        if (inp) inp.focus();
+      }, 150);
+    })();
   </script>
 
 </body>
