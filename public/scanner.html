@@ -209,7 +209,12 @@
         const box = document.getElementById('scanResult');
         box.className = 'scan-result';
 
-        if (data.valid) {
+        if (data.isRefunded) {
+          box.classList.add('invalid');
+          document.getElementById('resIcon').textContent = '⛔';
+          document.getElementById('resMsg').textContent = 'TICKET VOID / REFUNDED';
+          document.getElementById('resDetails').textContent = `${data.ticket?.buyerName || ''} · This ticket was CANCELLED or REFUNDED. Do not admit!`;
+        } else if (data.valid) {
           const isPending = data.ticket.paymentStatus === 'VENMO_PENDING';
           box.classList.add(isPending ? 'already' : 'valid');
           document.getElementById('resIcon').textContent = isPending ? '⚠️' : '✅';

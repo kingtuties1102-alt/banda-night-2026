@@ -275,6 +275,11 @@
       border: 1px solid rgba(234, 179, 8, 0.5);
       color: #facc15;
     }
+    .badge-refunded {
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid rgba(239, 68, 68, 0.5);
+      color: #f87171;
+    }
     .badge-method {
       background: rgba(148, 163, 184, 0.15);
       border: 1px solid rgba(148, 163, 184, 0.3);
@@ -295,6 +300,22 @@
     .btn-confirm-pay:hover {
       background: #22c55e;
       color: #000;
+    }
+    .btn-refund-pay {
+      padding: 0.25rem 0.55rem;
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-left: 0.35rem;
+      transition: all 0.2s;
+    }
+    .btn-refund-pay:hover {
+      background: #ef4444;
+      color: white;
     }
 
     @media (max-width: 1024px) {
@@ -486,6 +507,27 @@
       }
     }
 
+    async function refundTicket(ticketId, buyerName) {
+      const msg = `⚠️ REFUND & CANCEL TICKET\n\nAre you sure you want to refund/cancel ticket for ${buyerName} (${ticketId})?\n\n• This will VOID their QR code at the door (scanner will reject it).\n• The ticket spot will be returned to the active tier.\n\n(Reminder: If they paid via Venmo, please send the refund directly in your Venmo app).`;
+      if (!confirm(msg)) return;
+
+      try {
+        const res = await fetch('/api/admin/refund', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ticketId }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          fetchDashboardData();
+        } else {
+          alert('Could not refund ticket.');
+        }
+      } catch (e) {
+        alert('Connection error.');
+      }
+    }
+
     function renderTable(tickets) {
       const tbody = document.getElementById('ticketTbody');
       if (!tickets.length) {
@@ -496,37 +538,49 @@
       tbody.innerHTML = tickets.map((t, idx) => {
         const isVenmo = (t.method || '').toUpperCase() === 'VENMO';
         const isPending = t.paymentStatus === 'VENMO_PENDING';
+        const isRefunded = t.paymentStatus === 'REFUNDED';
 
         let statusHtml = '';
-        if (isPending) {
+        if (isRefunded) {
+          statusHtml = `<span class="badge badge-refunded">⛔ REFUNDED / VOID</span>`;
+        } else if (isPending) {
           statusHtml = `
-            <span class="badge badge-venmo-pending">⏳ VENMO PENDING</span>
+            <span class="badge badge-venmo-pending">⏳ PENDING</span>
             <button class="btn-confirm-pay" onclick="confirmVenmoPayment('${t.ticketId}')" title="Mark as confirmed">Confirm</button>
+            <button class="btn-refund-pay" onclick="refundTicket('${t.ticketId}', '${t.buyerName}')" title="Void ticket">Void</button>
           `;
         } else {
-          statusHtml = `<span class="badge badge-paid">✅ PAID</span>`;
+          statusHtml = `
+            <span class="badge badge-paid">✅ PAID</span>
+            <button class="btn-refund-pay" onclick="refundTicket('${t.ticketId}', '${t.buyerName}')" title="Void ticket & mark refunded">Refund</button>
+          `;
         }
 
         const methodBadge = isVenmo 
           ? `<span class="badge badge-method" style="border-color:#38bdf8; color:#7dd3fc;">📱 VENMO</span>`
           : `<span class="badge badge-method">💳 CARD (${t.cardBrand || 'Visa'} ••${t.cardLast4 || '42'})</span>`;
 
+        let doorStatusHtml = '';
+        if (isRefunded) {
+          doorStatusHtml = `<span class="badge badge-refunded">🚫 VOID</span>`;
+        } else if (t.checkedIn) {
+          doorStatusHtml = `<span class="badge badge-in">✅ IN</span>`;
+        } else {
+          doorStatusHtml = `<span class="badge badge-wait">⏳ WAITING</span>`;
+        }
+
         return `
-        <tr>
+        <tr style="${isRefunded ? 'opacity: 0.6; text-decoration: line-through;' : ''}">
           <td style="color:#94a3b8;">${tickets.length - idx}</td>
           <td><strong>${t.buyerName}</strong></td>
           <td style="color:#cbd5e1;">${t.buyerEmail}</td>
           <td><span class="badge badge-tier">${t.tier}</span></td>
           <td style="font-weight:700; color:#facc15;">$${t.price}</td>
           <td>${methodBadge}</td>
-          <td>${statusHtml}</td>
+          <td style="text-decoration:none;">${statusHtml}</td>
           <td style="font-family:monospace; color:#c084fc;">${t.ticketId}</td>
           <td style="font-size:0.8rem; color:#94a3b8;">${new Date(t.purchasedAt).toLocaleString()}</td>
-          <td>
-            <span class="badge ${t.checkedIn ? 'badge-in' : 'badge-wait'}">
-              ${t.checkedIn ? '✅ IN' : '⏳ WAITING'}
-            </span>
-          </td>
+          <td style="text-decoration:none;">${doorStatusHtml}</td>
         </tr>
       `}).join('');
     }

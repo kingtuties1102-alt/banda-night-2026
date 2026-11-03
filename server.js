@@ -53,7 +53,8 @@ const TIERS = [
 ];
 
 function getCurrentTierInfo(db) {
-  const totalSold = db.tickets.length;
+  const activeTickets = (db.tickets || []).filter(t => t.paymentStatus !== 'REFUNDED');
+  const totalSold = activeTickets.length;
   let cumulative = 0;
 
   for (let i = 0; i < TIERS.length; i++) {
@@ -291,6 +292,16 @@ const server = http.createServer(async (req, res) => {
       }));
     }
 
+    if (ticket.paymentStatus === 'REFUNDED') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({
+        valid: false,
+        isRefunded: true,
+        message: '⛔ TICKET VOID / REFUNDED — Do NOT allow entry!',
+        ticket,
+      }));
+    }
+
     if (ticket.checkedIn) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({
@@ -318,18 +329,21 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/admin/tickets' && req.method === 'GET') {
     const db = loadDB();
     const info = getCurrentTierInfo(db);
-    const totalRevenue = db.tickets.reduce((acc, t) => acc + (t.price || 0), 0);
-    const checkedInCount = db.tickets.filter(t => t.checkedIn).length;
-    const venmoPending = db.tickets.filter(t => t.paymentStatus === 'VENMO_PENDING').length;
+    const activeTickets = db.tickets.filter(t => t.paymentStatus !== 'REFUNDED');
+    const totalRevenue = activeTickets.filter(t => t.paymentStatus === 'PAID').reduce((acc, t) => acc + (t.price || 0), 0);
+    const checkedInCount = activeTickets.filter(t => t.checkedIn).length;
+    const venmoPending = activeTickets.filter(t => t.paymentStatus === 'VENMO_PENDING').length;
+    const refundedCount = db.tickets.filter(t => t.paymentStatus === 'REFUNDED').length;
     const venmoUser = db.config?.venmoUsername || VENMO_USERNAME;
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({
       tickets: [...db.tickets].reverse(),
-      totalSold: db.tickets.length,
+      totalSold: activeTickets.length,
       totalRevenue,
       checkedInCount,
       venmoPending,
+      refundedCount,
       venmoUsername: venmoUser,
       currentTier: info.currentTier,
       tiers: info.tiers,
@@ -382,6 +396,32 @@ const server = http.createServer(async (req, res) => {
     }
 
     ticket.paymentStatus = 'PAID';
+    saveDB(db);
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ success: true, ticketId }));
+  }
+
+  // --- API: Admin refund / cancel ticket ---
+  if (pathname === '/api/admin/refund' && req.method === 'POST') {
+    const body = await parseBody(req);
+    const { ticketId } = body;
+
+    if (!ticketId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Ticket ID required.' }));
+    }
+
+    const db = loadDB();
+    const ticket = db.tickets.find(t => t.ticketId === ticketId);
+
+    if (!ticket) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Ticket not found.' }));
+    }
+
+    ticket.paymentStatus = 'REFUNDED';
+    ticket.refundedAt = new Date().toISOString();
     saveDB(db);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
