@@ -1,0 +1,2374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Banda Night 2026 | Sigma Lambda Beta — Sigma Gamma Chapter</title>
+  
+  <!-- Premium Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,800;1,600&display=swap" rel="stylesheet">
+  
+  <style>
+    /* ════════════════════════════════════════════════════════════════
+       ULTRAVIOLET NOCTURNE AESTHETIC — SIGMA LAMBDA BETA BANDA NIGHT
+       ════════════════════════════════════════════════════════════════ */
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-black: #05010a;
+      --bg-surface: #0c0418;
+      --bg-card: rgba(18, 7, 36, 0.78);
+      --bg-card-hover: rgba(30, 12, 60, 0.88);
+      --purple-900: #1d0738;
+      --purple-800: #3b0764;
+      --purple-700: #581c87;
+      --purple-600: #7e22ce;
+      --purple-500: #a855f7;
+      --purple-400: #c084fc;
+      --purple-neon: #d946ef;
+      --purple-glow: #e879f9;
+      --silver-100: #f8fafc;
+      --silver-300: #cbd5e1;
+      --silver-500: #94a3b8;
+      --gold-foil: #facc15;
+      --border-glow: rgba(192, 132, 252, 0.35);
+      --neon-shadow: 0 0 20px rgba(168, 85, 247, 0.45), 0 0 50px rgba(126, 34, 206, 0.25);
+      --neon-intense: 0 0 15px rgba(232, 121, 249, 0.8), 0 0 35px rgba(168, 85, 247, 0.5);
+    }
+
+    html {
+      scroll-behavior: smooth;
+      color-scheme: dark;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      background: var(--bg-black);
+      color: var(--silver-100);
+      overflow-x: hidden;
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* Ambient background glows */
+    .ambient-glow {
+      position: fixed;
+      pointer-events: none;
+      z-index: 0;
+      border-radius: 50%;
+      filter: blur(140px);
+      opacity: 0.45;
+    }
+    .glow-1 {
+      top: -150px;
+      left: 10%;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, #7e22ce, transparent 70%);
+      animation: floatAura 18s ease-in-out infinite alternate;
+    }
+    .glow-2 {
+      top: 45%;
+      right: -100px;
+      width: 550px;
+      height: 550px;
+      background: radial-gradient(circle, #c026d3, transparent 70%);
+      animation: floatAura 22s ease-in-out infinite alternate-reverse;
+    }
+    .glow-3 {
+      bottom: -100px;
+      left: 20%;
+      width: 700px;
+      height: 700px;
+      background: radial-gradient(circle, #4c1d95, transparent 70%);
+    }
+
+    @keyframes floatAura {
+      0% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(40px, -30px) scale(1.12); }
+      100% { transform: translate(-30px, 40px) scale(0.95); }
+    }
+
+    /* Floating sparkle stars */
+    .sparkle-field {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      overflow: hidden;
+    }
+    .sparkle {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      background: #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #c084fc, 0 0 16px #e879f9;
+      opacity: 0;
+      animation: twinkle linear infinite;
+    }
+    @keyframes twinkle {
+      0% { opacity: 0; transform: scale(0.3); }
+      50% { opacity: 0.9; transform: scale(1.3); }
+      100% { opacity: 0; transform: scale(0.3); }
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       NAVBAR
+       ════════════════════════════════════════════════════════════════ */
+    .nav-bar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      background: rgba(5, 1, 10, 0.75);
+      border-bottom: 1px solid rgba(168, 85, 247, 0.15);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      text-decoration: none;
+      color: white;
+    }
+    .nav-crest {
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      object-fit: contain;
+      border: 1px solid rgba(192, 132, 252, 0.4);
+      background: rgba(88, 28, 135, 0.3);
+      padding: 3px;
+    }
+    .nav-title {
+      font-family: 'Cinzel', serif;
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      background: linear-gradient(135deg, #ffffff 0%, #e879f9 70%, #c084fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 1.75rem;
+      list-style: none;
+    }
+    .nav-link {
+      color: var(--silver-300);
+      text-decoration: none;
+      font-size: 0.88rem;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      transition: all 0.25s ease;
+      position: relative;
+    }
+    .nav-link:hover {
+      color: var(--purple-300);
+      text-shadow: 0 0 10px rgba(192, 132, 252, 0.6);
+    }
+    .nav-btn {
+      padding: 0.6rem 1.4rem;
+      background: linear-gradient(135deg, var(--purple-600) 0%, var(--purple-800) 100%);
+      border: 1px solid var(--purple-400);
+      border-radius: 999px;
+      color: white;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.85rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 18px rgba(168, 85, 247, 0.3);
+    }
+    .nav-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--neon-intense);
+      background: linear-gradient(135deg, var(--purple-500) 0%, var(--purple-700) 100%);
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       COVER HERO SECTION (Poster Spotlight)
+       ════════════════════════════════════════════════════════════════ */
+    .hero-section {
+      position: relative;
+      z-index: 2;
+      padding: 3.5rem 2rem 5rem;
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.05fr;
+      gap: 4rem;
+      align-items: center;
+    }
+
+    /* Poster Frame Presentation */
+    .poster-container {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .poster-halo {
+      position: absolute;
+      inset: -20px;
+      border-radius: 28px;
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.4), rgba(217, 70, 239, 0.25), rgba(88, 28, 135, 0.6));
+      filter: blur(35px);
+      opacity: 0.85;
+      animation: pulseHalo 4s ease-in-out infinite alternate;
+      z-index: 1;
+    }
+
+    @keyframes pulseHalo {
+      0% { opacity: 0.6; filter: blur(30px); }
+      100% { opacity: 1; filter: blur(48px); }
+    }
+
+    .poster-card {
+      position: relative;
+      z-index: 2;
+      border-radius: 20px;
+      overflow: hidden;
+      border: 2px solid rgba(192, 132, 252, 0.45);
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.9), 0 0 40px rgba(168, 85, 247, 0.35);
+      background: #000;
+      transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.5s ease;
+      cursor: pointer;
+      max-width: 480px;
+      width: 100%;
+    }
+
+    .poster-card:hover {
+      transform: translateY(-8px) scale(1.02);
+      box-shadow: 0 35px 80px rgba(0, 0, 0, 0.95), 0 0 60px rgba(217, 70, 239, 0.55);
+      border-color: var(--purple-glow);
+    }
+
+    .poster-card img {
+      width: 100%;
+      height: auto;
+      display: block;
+      transition: transform 0.6s ease;
+    }
+
+    .poster-badge {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: rgba(12, 4, 24, 0.85);
+      border: 1px solid var(--purple-400);
+      backdrop-filter: blur(10px);
+      padding: 0.4rem 0.9rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--purple-glow);
+      box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .poster-badge::before {
+      content: '';
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--purple-neon);
+      box-shadow: 0 0 8px var(--purple-glow);
+      animation: blinkDot 1.5s infinite;
+    }
+    @keyframes blinkDot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* Hero Text & Info */
+    .hero-info {
+      position: relative;
+      z-index: 2;
+    }
+
+    .chapter-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.65rem;
+      padding: 0.45rem 1.1rem;
+      border-radius: 999px;
+      background: rgba(88, 28, 135, 0.25);
+      border: 1px solid rgba(192, 132, 252, 0.3);
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--purple-400);
+      margin-bottom: 1.5rem;
+      backdrop-filter: blur(8px);
+    }
+    .chapter-tag span {
+      color: var(--gold-foil);
+      text-shadow: 0 0 10px rgba(250, 204, 21, 0.5);
+    }
+
+    .hero-main-title {
+      font-family: 'Cinzel', serif;
+      font-size: clamp(2.8rem, 5.5vw, 4.4rem);
+      font-weight: 900;
+      line-height: 1.08;
+      margin-bottom: 0.6rem;
+      letter-spacing: 1px;
+    }
+
+    .hero-main-title .silver-text {
+      background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 55%, #64748b 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: inline-block;
+      text-shadow: 0 0 25px rgba(255, 255, 255, 0.2);
+    }
+
+    .hero-main-title .purple-script {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      font-weight: 800;
+      background: linear-gradient(135deg, #f472b6 0%, #e879f9 50%, #c084fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 35px rgba(217, 70, 239, 0.6);
+      display: inline-block;
+    }
+
+    .hero-subtitle {
+      font-size: 1.15rem;
+      color: var(--silver-300);
+      font-weight: 400;
+      margin-bottom: 2rem;
+      max-width: 520px;
+    }
+
+    /* Event Highlights Pill Bar */
+    .event-meta-cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-bottom: 2.25rem;
+    }
+    .meta-box {
+      background: var(--bg-card);
+      border: 1px solid rgba(168, 85, 247, 0.25);
+      border-radius: 14px;
+      padding: 1rem;
+      text-align: left;
+      backdrop-filter: blur(12px);
+      transition: border-color 0.3s;
+    }
+    .meta-box:hover {
+      border-color: var(--purple-400);
+    }
+    .meta-label {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--purple-400);
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+    .meta-value {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: white;
+    }
+
+    /* Countdown Bar */
+    .countdown-wrapper {
+      background: linear-gradient(90deg, rgba(88, 28, 135, 0.3) 0%, rgba(147, 51, 234, 0.15) 100%);
+      border: 1px solid rgba(192, 132, 252, 0.3);
+      border-radius: 16px;
+      padding: 1.1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2.25rem;
+      backdrop-filter: blur(12px);
+    }
+    .countdown-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-weight: 700;
+      color: var(--purple-glow);
+    }
+    .countdown-timer {
+      display: flex;
+      gap: 1rem;
+    }
+    .time-unit {
+      text-align: center;
+    }
+    .time-num {
+      font-family: 'Cinzel', serif;
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: white;
+      text-shadow: 0 0 12px rgba(232, 121, 249, 0.6);
+      line-height: 1;
+    }
+    .time-lbl {
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      color: var(--silver-500);
+      margin-top: 2px;
+      letter-spacing: 1px;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 1.25rem;
+      flex-wrap: wrap;
+    }
+    .btn-primary-hero {
+      padding: 1.05rem 2.4rem;
+      background: linear-gradient(135deg, #9333ea 0%, #6b21a8 100%);
+      border: 1px solid var(--purple-glow);
+      border-radius: 12px;
+      color: white;
+      font-weight: 800;
+      font-size: 1rem;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      text-decoration: none;
+      box-shadow: 0 0 25px rgba(168, 85, 247, 0.45);
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .btn-primary-hero:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 0 45px rgba(217, 70, 239, 0.7);
+      border-color: #ffffff;
+    }
+    .btn-secondary-hero {
+      padding: 1.05rem 2rem;
+      background: rgba(18, 7, 36, 0.8);
+      border: 1px solid rgba(192, 132, 252, 0.35);
+      border-radius: 12px;
+      color: var(--silver-100);
+      font-weight: 600;
+      font-size: 0.95rem;
+      text-decoration: none;
+      transition: all 0.3s ease;
+    }
+    .btn-secondary-hero:hover {
+      background: rgba(88, 28, 135, 0.3);
+      border-color: var(--purple-400);
+      color: white;
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       SECTION COMMON STYLES
+       ════════════════════════════════════════════════════════════════ */
+    .section-container {
+      position: relative;
+      z-index: 2;
+      max-width: 1260px;
+      margin: 0 auto;
+      padding: 5rem 2rem;
+    }
+
+    .section-header {
+      text-align: center;
+      max-width: 700px;
+      margin: 0 auto 3.5rem;
+    }
+    .section-eyebrow {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: var(--purple-neon);
+      text-shadow: 0 0 12px rgba(217, 70, 239, 0.6);
+      margin-bottom: 0.6rem;
+    }
+    .section-title {
+      font-family: 'Cinzel', serif;
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 800;
+      color: white;
+      margin-bottom: 0.75rem;
+      line-height: 1.15;
+    }
+    .section-desc {
+      color: var(--silver-500);
+      font-size: 1rem;
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       TICKETS & LIVE TIERS
+       ════════════════════════════════════════════════════════════════ */
+    .tiers-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 3.5rem;
+    }
+
+    .tier-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(168, 85, 247, 0.25);
+      border-radius: 20px;
+      padding: 2.25rem 1.75rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      backdrop-filter: blur(16px);
+      transition: all 0.35s ease;
+    }
+
+    .tier-card.active-tier {
+      border-color: var(--purple-neon);
+      background: linear-gradient(180deg, rgba(88, 28, 135, 0.45) 0%, rgba(18, 7, 36, 0.9) 100%);
+      box-shadow: 0 0 35px rgba(168, 85, 247, 0.3), inset 0 0 20px rgba(217, 70, 239, 0.1);
+      transform: translateY(-6px);
+    }
+
+    .tier-card.active-tier::before {
+      content: 'SELLING NOW';
+      position: absolute;
+      top: 14px;
+      right: -32px;
+      background: linear-gradient(90deg, #d946ef, #9333ea);
+      color: white;
+      font-size: 0.65rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      padding: 0.3rem 2.8rem;
+      transform: rotate(45deg);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    }
+
+    .tier-card.sold-out-tier {
+      opacity: 0.45;
+      filter: grayscale(0.6);
+    }
+
+    .tier-icon {
+      font-size: 2.4rem;
+      margin-bottom: 0.75rem;
+      display: inline-block;
+    }
+
+    .tier-name {
+      font-family: 'Cinzel', serif;
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+    }
+
+    .tier-price-row {
+      margin: 1rem 0;
+    }
+    .tier-price-num {
+      font-size: 3.2rem;
+      font-weight: 800;
+      color: white;
+      line-height: 1;
+      text-shadow: 0 0 20px rgba(192, 132, 252, 0.4);
+    }
+    .tier-price-num sup {
+      font-size: 1.4rem;
+      color: var(--purple-400);
+      margin-right: 2px;
+    }
+
+    .tier-desc {
+      font-size: 0.85rem;
+      color: var(--silver-300);
+      margin-bottom: 1.25rem;
+    }
+
+    .tier-status-pill {
+      display: inline-block;
+      padding: 0.35rem 1rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .tier-card.active-tier .tier-status-pill {
+      background: rgba(34, 197, 94, 0.2);
+      border: 1px solid rgba(34, 197, 94, 0.5);
+      color: #4ade80;
+    }
+    .tier-card.sold-out-tier .tier-status-pill {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #f87171;
+    }
+    .tier-card.upcoming-tier .tier-status-pill {
+      background: rgba(148, 163, 184, 0.1);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      color: var(--silver-500);
+    }
+
+    /* Live Progress Bar */
+    .tier-progress-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(168, 85, 247, 0.25);
+      border-radius: 16px;
+      padding: 1.5rem 2rem;
+      max-width: 820px;
+      margin: 0 auto 3.5rem;
+      backdrop-filter: blur(12px);
+    }
+    .progress-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      margin-bottom: 0.75rem;
+    }
+    .progress-bar-track {
+      width: 100%;
+      height: 12px;
+      background: rgba(88, 28, 135, 0.3);
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid rgba(192, 132, 252, 0.2);
+    }
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #9333ea, #d946ef, #f472b6);
+      border-radius: 999px;
+      box-shadow: 0 0 12px rgba(217, 70, 239, 0.8);
+      transition: width 0.8s ease;
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       CHECKOUT CARD PAYMENT FORM
+       ════════════════════════════════════════════════════════════════ */
+    .checkout-box {
+      max-width: 620px;
+      margin: 0 auto;
+      background: var(--bg-card);
+      border: 1px solid rgba(192, 132, 252, 0.35);
+      border-radius: 24px;
+      padding: 2.75rem 2.5rem;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6), 0 0 35px rgba(168, 85, 247, 0.15);
+    }
+
+    .checkout-header {
+      text-align: center;
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid rgba(168, 85, 247, 0.15);
+    }
+    .checkout-title {
+      font-family: 'Cinzel', serif;
+      font-size: 1.7rem;
+      font-weight: 800;
+      color: white;
+      margin-bottom: 0.4rem;
+    }
+    .checkout-tier-tag {
+      font-size: 0.88rem;
+      color: var(--purple-glow);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+    .form-full {
+      margin-bottom: 1.25rem;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--silver-300);
+      margin-bottom: 0.5rem;
+    }
+
+    .input-wrapper {
+      position: relative;
+    }
+
+    .form-input {
+      width: 100%;
+      background: rgba(8, 2, 18, 0.85);
+      border: 1px solid rgba(168, 85, 247, 0.28);
+      border-radius: 12px;
+      padding: 0.95rem 1.15rem;
+      color: white;
+      font-family: inherit;
+      font-size: 0.98rem;
+      outline: none;
+      transition: all 0.25s ease;
+    }
+    .form-input:focus {
+      border-color: var(--purple-glow);
+      box-shadow: 0 0 18px rgba(217, 70, 239, 0.35);
+      background: rgba(18, 7, 36, 0.95);
+    }
+    .form-input::placeholder {
+      color: rgba(148, 163, 184, 0.4);
+    }
+
+    .card-brand-badge {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--purple-400);
+      background: rgba(88, 28, 135, 0.4);
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      border: 1px solid rgba(192, 132, 252, 0.3);
+      pointer-events: none;
+    }
+
+    /* Test card quick-fill helper */
+    .test-card-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      color: var(--purple-400);
+      background: rgba(147, 51, 234, 0.12);
+      border: 1px dashed rgba(192, 132, 252, 0.4);
+      padding: 0.35rem 0.8rem;
+      border-radius: 999px;
+      margin-bottom: 1.25rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .test-card-pill:hover {
+      background: rgba(147, 51, 234, 0.25);
+      border-color: var(--purple-glow);
+      color: white;
+    }
+
+    .btn-pay-submit {
+      width: 100%;
+      padding: 1.15rem;
+      background: linear-gradient(135deg, #9333ea 0%, #7e22ce 50%, #4c1d95 100%);
+      border: 1px solid var(--purple-glow);
+      border-radius: 14px;
+      color: white;
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 25px rgba(168, 85, 247, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+    }
+    .btn-pay-submit:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 0 40px rgba(217, 70, 239, 0.65);
+      border-color: #ffffff;
+    }
+    .btn-pay-submit:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .security-badges {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1.25rem;
+      margin-top: 1.25rem;
+      font-size: 0.75rem;
+      color: var(--silver-500);
+    }
+    .security-badges span {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    /* Payment Method Tabs & Venmo */
+    .payment-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin-bottom: 1.75rem;
+      background: rgba(10, 3, 22, 0.7);
+      padding: 0.35rem;
+      border-radius: 14px;
+      border: 1px solid rgba(168, 85, 247, 0.2);
+    }
+    .tab-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.85rem 1rem;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      color: var(--silver-400);
+      font-weight: 700;
+      font-size: 0.88rem;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.25s ease;
+    }
+    .tab-btn:hover {
+      color: white;
+      background: rgba(147, 51, 234, 0.15);
+    }
+    .tab-btn.active#tabVenmoBtn {
+      background: linear-gradient(135deg, rgba(0, 140, 255, 0.25), rgba(147, 51, 234, 0.2));
+      border: 1px solid #008cff;
+      color: white;
+      box-shadow: 0 0 15px rgba(0, 140, 255, 0.3);
+    }
+    .tab-btn.active#tabCardBtn {
+      background: linear-gradient(135deg, rgba(147, 51, 234, 0.3), rgba(217, 70, 239, 0.25));
+      border: 1px solid var(--purple-glow);
+      color: white;
+      box-shadow: 0 0 15px rgba(217, 70, 239, 0.3);
+    }
+    .tab-panel {
+      display: none;
+    }
+    .tab-panel.active {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
+
+    /* Venmo Instructions Box */
+    .venmo-instructions-card {
+      background: rgba(0, 140, 255, 0.08);
+      border: 1px solid rgba(0, 140, 255, 0.3);
+      border-radius: 16px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .venmo-header-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.9rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid rgba(0, 140, 255, 0.2);
+    }
+    .venmo-logo-text {
+      font-weight: 900;
+      font-size: 1.3rem;
+      letter-spacing: -0.5px;
+      color: #008cff;
+      font-style: italic;
+    }
+    .venmo-handle-tag {
+      font-family: monospace;
+      font-size: 0.88rem;
+      color: #7dd3fc;
+      background: rgba(0, 140, 255, 0.15);
+      padding: 0.3rem 0.7rem;
+      border-radius: 6px;
+      border: 1px solid rgba(0, 140, 255, 0.3);
+    }
+    .venmo-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      font-size: 0.85rem;
+      color: #cbd5e1;
+      line-height: 1.4;
+    }
+    .step-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.65rem;
+    }
+    .step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #008cff;
+      color: white;
+      font-size: 0.7rem;
+      font-weight: 800;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .btn-venmo-submit {
+      width: 100%;
+      padding: 1.15rem;
+      background: linear-gradient(135deg, #008cff 0%, #0070cc 50%, #005099 100%);
+      border: 1px solid #38bdf8;
+      border-radius: 14px;
+      color: white;
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 25px rgba(0, 140, 255, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      font-family: inherit;
+    }
+    .btn-venmo-submit:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 0 40px rgba(0, 140, 255, 0.7);
+      border-color: #ffffff;
+    }
+    .btn-venmo-submit:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .venmo-v-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      background: white;
+      color: #008cff;
+      font-weight: 900;
+      font-size: 1.1rem;
+      font-style: italic;
+      border-radius: 5px;
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       SCHOLARSHIP TRIBUTE SECTION (Vamos a Volar)
+       ════════════════════════════════════════════════════════════════ */
+    .scholarship-section {
+      position: relative;
+      z-index: 2;
+      background: linear-gradient(180deg, rgba(12, 4, 24, 0) 0%, rgba(29, 7, 56, 0.5) 50%, rgba(12, 4, 24, 0) 100%);
+      padding: 5rem 2rem;
+      border-top: 1px solid rgba(168, 85, 247, 0.15);
+      border-bottom: 1px solid rgba(168, 85, 247, 0.15);
+    }
+
+    .scholarship-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      max-width: 1200px;
+      margin: 0 auto;
+      align-items: center;
+    }
+
+    .scholarship-flyers-wrap {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+    }
+
+    .scholarship-flyer-card {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(192, 132, 252, 0.35);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.7), 0 0 25px rgba(168, 85, 247, 0.2);
+      transition: all 0.35s ease;
+      cursor: pointer;
+      background: #000;
+    }
+    .scholarship-flyer-card:hover {
+      transform: translateY(-6px) scale(1.03);
+      border-color: var(--purple-glow);
+      box-shadow: var(--neon-shadow);
+    }
+    .scholarship-flyer-card img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .scholarship-info-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(192, 132, 252, 0.28);
+      border-radius: 20px;
+      padding: 2.5rem;
+      backdrop-filter: blur(16px);
+    }
+
+    .tribute-badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--gold-foil);
+      background: rgba(250, 204, 21, 0.12);
+      border: 1px solid rgba(250, 204, 21, 0.3);
+      padding: 0.35rem 0.9rem;
+      border-radius: 999px;
+      margin-bottom: 1rem;
+    }
+
+    .scholarship-title {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      font-size: 2.4rem;
+      color: white;
+      margin-bottom: 0.5rem;
+      text-shadow: 0 0 20px rgba(232, 121, 249, 0.4);
+    }
+
+    .scholarship-sub {
+      font-size: 1.05rem;
+      color: var(--purple-400);
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+    }
+
+    .scholarship-points {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .scholarship-points li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.85rem;
+      font-size: 0.95rem;
+      color: var(--silver-300);
+    }
+    .scholarship-points li .bullet {
+      color: var(--purple-neon);
+      font-size: 1.1rem;
+      line-height: 1;
+      margin-top: 3px;
+    }
+
+    .scholarship-impact-box {
+      background: linear-gradient(135deg, rgba(88, 28, 135, 0.35), rgba(12, 4, 24, 0.8));
+      border: 1px solid rgba(192, 132, 252, 0.3);
+      border-radius: 14px;
+      padding: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .impact-icon {
+      font-size: 2rem;
+    }
+    .impact-text {
+      font-size: 0.88rem;
+      color: white;
+    }
+    .impact-text strong {
+      color: var(--gold-foil);
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       PHOTO GALLERY (Event Vibes)
+       ════════════════════════════════════════════════════════════════ */
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      grid-auto-rows: 240px;
+      gap: 1.25rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .gallery-tile {
+      position: relative;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid rgba(168, 85, 247, 0.25);
+      cursor: pointer;
+      transition: all 0.4s ease;
+      background: #000;
+    }
+    .gallery-tile:hover {
+      transform: translateY(-5px) scale(1.02);
+      border-color: var(--purple-glow);
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.8), 0 0 30px rgba(168, 85, 247, 0.35);
+      z-index: 10;
+    }
+
+    .gallery-tile img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.6s ease;
+      filter: brightness(0.9) contrast(1.05);
+    }
+    .gallery-tile:hover img {
+      transform: scale(1.08);
+      filter: brightness(1.02);
+    }
+
+    .tile-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, transparent 40%, rgba(5, 1, 10, 0.85) 100%);
+      display: flex;
+      align-items: flex-end;
+      padding: 1.25rem;
+      opacity: 0.9;
+      transition: opacity 0.3s;
+    }
+    .tile-caption {
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: white;
+    }
+
+    /* Bento sizing */
+    .tile-wide-8 { grid-column: span 8; }
+    .tile-wide-6 { grid-column: span 6; }
+    .tile-wide-4 { grid-column: span 4; }
+    .tile-tall { grid-row: span 2; }
+
+    /* ════════════════════════════════════════════════════════════════
+       DIGITAL TICKET MODAL (Apple Wallet / Boarding Pass Style)
+       ════════════════════════════════════════════════════════════════ */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: rgba(3, 1, 8, 0.88);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      overflow-y: auto;
+    }
+    .modal-backdrop.open {
+      display: flex;
+      animation: modalFadeIn 0.35s ease;
+    }
+    @keyframes modalFadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .pass-card {
+      position: relative;
+      background: linear-gradient(145deg, #150628 0%, #0d031a 50%, #080112 100%);
+      border: 2px solid var(--purple-400);
+      border-radius: 24px;
+      width: 100%;
+      max-width: 440px;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.9), 0 0 50px rgba(168, 85, 247, 0.4);
+      overflow: hidden;
+      animation: passSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes passSlideUp {
+      from { transform: translateY(40px) scale(0.95); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    .pass-header {
+      background: linear-gradient(90deg, #7e22ce 0%, #a855f7 50%, #d946ef 100%);
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .pass-header-title {
+      font-family: 'Cinzel', serif;
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: white;
+      letter-spacing: 1px;
+    }
+    .pass-header-tag {
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+    }
+
+    .pass-body {
+      padding: 2rem 1.75rem 1.5rem;
+      text-align: center;
+    }
+
+    .pass-event-title {
+      font-family: 'Cinzel', serif;
+      font-size: 1.6rem;
+      font-weight: 900;
+      color: white;
+      margin-bottom: 0.2rem;
+    }
+    .pass-event-date {
+      color: var(--purple-glow);
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      margin-bottom: 1.5rem;
+    }
+
+    .pass-qr-box {
+      background: white;
+      border-radius: 18px;
+      padding: 1.25rem;
+      display: inline-block;
+      margin: 0 auto 1.5rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 25px rgba(217, 70, 239, 0.35);
+    }
+    .pass-qr-box img {
+      width: 220px;
+      height: 220px;
+      display: block;
+    }
+
+    .pass-details-table {
+      background: rgba(88, 28, 135, 0.15);
+      border: 1px solid rgba(192, 132, 252, 0.2);
+      border-radius: 14px;
+      padding: 1rem 1.25rem;
+      text-align: left;
+      margin-bottom: 1.5rem;
+    }
+    .pass-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.4rem 0;
+      font-size: 0.85rem;
+    }
+    .pass-row:not(:last-child) {
+      border-bottom: 1px solid rgba(168, 85, 247, 0.1);
+    }
+    .pass-lbl {
+      color: var(--silver-500);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .pass-val {
+      font-weight: 700;
+      color: white;
+    }
+    .pass-val.code {
+      font-family: monospace;
+      color: var(--purple-glow);
+      font-size: 0.95rem;
+    }
+
+    /* Tear cutouts */
+    .pass-tear-line {
+      position: relative;
+      height: 1px;
+      border-top: 2px dashed rgba(168, 85, 247, 0.3);
+      margin: 0 1rem;
+    }
+    .pass-tear-line::before, .pass-tear-line::after {
+      content: '';
+      position: absolute;
+      top: -12px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--bg-black);
+    }
+    .pass-tear-line::before { left: -26px; }
+    .pass-tear-line::after { right: -26px; }
+
+    .pass-actions {
+      padding: 1.5rem 1.75rem;
+      display: flex;
+      gap: 0.85rem;
+    }
+    .pass-btn-download {
+      flex: 1;
+      padding: 0.85rem;
+      background: linear-gradient(135deg, #d946ef 0%, #9333ea 100%);
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-weight: 800;
+      font-size: 0.88rem;
+      letter-spacing: 1px;
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(217, 70, 239, 0.4);
+      transition: all 0.25s;
+    }
+    .pass-btn-download:hover {
+      box-shadow: var(--neon-intense);
+      transform: translateY(-2px);
+    }
+    .pass-btn-close {
+      padding: 0.85rem 1.25rem;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       LIGHTBOX (Full Screen Photo View)
+       ════════════════════════════════════════════════════════════════ */
+    .lightbox-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      background: rgba(0, 0, 0, 0.95);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      cursor: pointer;
+    }
+    .lightbox-modal.open {
+      display: flex;
+    }
+    .lightbox-modal img {
+      max-width: 92vw;
+      max-height: 90vh;
+      object-fit: contain;
+      border-radius: 12px;
+      border: 1px solid rgba(192, 132, 252, 0.4);
+      box-shadow: 0 0 60px rgba(168, 85, 247, 0.4);
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       FOOTER
+       ════════════════════════════════════════════════════════════════ */
+    .site-footer {
+      position: relative;
+      z-index: 2;
+      border-top: 1px solid rgba(168, 85, 247, 0.2);
+      padding: 4rem 2rem 3rem;
+      background: #020005;
+      text-align: center;
+    }
+    .footer-crest {
+      width: 50px;
+      height: 50px;
+      margin: 0 auto 1.25rem;
+      opacity: 0.9;
+    }
+    .footer-title {
+      font-family: 'Cinzel', serif;
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: white;
+      letter-spacing: 2px;
+      margin-bottom: 0.5rem;
+    }
+    .footer-sub {
+      color: var(--silver-500);
+      font-size: 0.85rem;
+      max-width: 500px;
+      margin: 0 auto 2rem;
+    }
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      margin-bottom: 2rem;
+      font-size: 0.85rem;
+    }
+    .footer-links a {
+      color: var(--purple-400);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .footer-links a:hover {
+      color: white;
+    }
+    .footer-copy {
+      font-size: 0.75rem;
+      color: rgba(148, 163, 184, 0.4);
+    }
+
+    /* Responsive */
+    @media (max-width: 992px) {
+      .hero-grid { grid-template-columns: 1fr; gap: 3rem; text-align: center; }
+      .poster-container { order: -1; }
+      .event-meta-cards { max-width: 480px; margin-left: auto; margin-right: auto; }
+      .countdown-wrapper { max-width: 480px; margin-left: auto; margin-right: auto; }
+      .hero-actions { justify-content: center; }
+      .scholarship-grid { grid-template-columns: 1fr; }
+      .tiers-grid { grid-template-columns: 1fr; max-width: 420px; margin-left: auto; margin-right: auto; }
+      .gallery-tile { grid-column: span 12 !important; grid-row: span 1 !important; }
+    }
+
+    @media (max-width: 600px) {
+      .nav-links { display: none; }
+      .form-row { grid-template-columns: 1fr; }
+      .checkout-box { padding: 1.75rem 1.25rem; }
+      .event-meta-cards { grid-template-columns: 1fr; }
+      .scholarship-flyers-wrap { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient Light Effects -->
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+  <div class="ambient-glow glow-3"></div>
+  <div class="sparkle-field" id="sparkleField"></div>
+
+  <!-- NAVBAR -->
+  <header class="nav-bar">
+    <a href="#" class="nav-brand">
+      <img src="/images/photo6.jpg" alt="ΣΛΒ Crest" class="nav-crest">
+      <span class="nav-title">ΣΛΒ · BANDA NIGHT</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="#about" class="nav-link">Event</a></li>
+      <li><a href="#tickets" class="nav-link">Tickets</a></li>
+      <li><a href="#scholarship" class="nav-link">Scholarship</a></li>
+      <li><a href="#gallery" class="nav-link">Gallery</a></li>
+      <li><a href="/admin.html" class="nav-link">Dashboard</a></li>
+      <li><a href="/scanner.html" class="nav-link">Door Scanner</a></li>
+    </ul>
+    <a href="#tickets" class="nav-btn">Buy Ticket</a>
+  </header>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       COVER HERO SECTION (Featured Official Poster)
+       ════════════════════════════════════════════════════════════════ -->
+  <section class="hero-section" id="about">
+    <div class="hero-grid">
+      
+      <!-- Left: Official Event Poster -->
+      <div class="poster-container">
+        <div class="poster-halo"></div>
+        <div class="poster-card" onclick="openLightbox('/images/poster.jpg')">
+          <span class="poster-badge">Official Poster</span>
+          <img src="/images/poster.jpg" alt="Banda Night 2026 Official Event Flyer">
+        </div>
+      </div>
+
+      <!-- Right: Event Info & Call to Action -->
+      <div class="hero-info">
+        <div class="chapter-tag">
+          The <span>Sigma Gamma Chapter</span> Presents
+        </div>
+        
+        <h1 class="hero-main-title">
+          <span class="silver-text">BANDA</span><br>
+          <span class="purple-script">Night 2026</span>
+        </h1>
+
+        <p class="hero-subtitle">
+          Una noche inolvidable de música en vivo, baile, cultura y hermandad. Join the Brothers of Sigma Lambda Beta International Fraternity Inc. for the ultimate celebration — featuring live banda by La Tormentosa and tacos!
+        </p>
+
+        <!-- Key Details Grid -->
+        <div class="event-meta-cards">
+          <div class="meta-box">
+            <div class="meta-label">📅 Date</div>
+            <div class="meta-value">JAN 9TH, 2026</div>
+          </div>
+          <div class="meta-box">
+            <div class="meta-label">🎺 Live Music</div>
+            <div class="meta-value">La Tormentosa</div>
+          </div>
+          <div class="meta-box">
+            <div class="meta-label">Admission</div>
+            <div class="meta-value" id="heroPriceTag">$15 Tier 1</div>
+          </div>
+          <div class="meta-box">
+            <div class="meta-label">🌮 Food</div>
+            <div class="meta-value">Tacos on Sale</div>
+          </div>
+        </div>
+
+        <!-- Live Countdown to January 9th -->
+        <div class="countdown-wrapper">
+          <div class="countdown-title">⚡ Doors Open In</div>
+          <div class="countdown-timer">
+            <div class="time-unit">
+              <div class="time-num" id="cdDays">00</div>
+              <div class="time-lbl">Days</div>
+            </div>
+            <div class="time-unit">
+              <div class="time-num" id="cdHours">00</div>
+              <div class="time-lbl">Hours</div>
+            </div>
+            <div class="time-unit">
+              <div class="time-num" id="cdMins">00</div>
+              <div class="time-lbl">Mins</div>
+            </div>
+            <div class="time-unit">
+              <div class="time-num" id="cdSecs">00</div>
+              <div class="time-lbl">Secs</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CTA Buttons -->
+        <div class="hero-actions">
+          <a href="#tickets" class="btn-primary-hero">
+            <span>Get Your Ticket</span>
+            <span>→</span>
+          </a>
+          <a href="#scholarship" class="btn-secondary-hero">
+            Vamos a Volar Scholarship
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       TICKETS & AUTOMATIC TIER PRICING
+       ════════════════════════════════════════════════════════════════ -->
+  <section class="section-container" id="tickets">
+    <div class="section-header">
+      <span class="section-eyebrow">✦ Real-Time Admission Tiers ✦</span>
+      <h2 class="section-title">Select Your Ticket</h2>
+      <p class="section-desc">Tier prices advance automatically as sales reach capacity. Lock in early bird pricing now!</p>
+    </div>
+
+    <!-- Tiers Display -->
+    <div class="tiers-grid" id="tiersGrid">
+      
+      <!-- Tier 1: Early Bird -->
+      <div class="tier-card active-tier" id="tierCard-0">
+        <h3 class="tier-name">Early Bird</h3>
+        <div class="tier-price-row">
+          <span class="tier-price-num"><sup>$</sup>15</span>
+        </div>
+        <p class="tier-desc">First 100 tickets sold</p>
+        <span class="tier-status-pill" id="tierStatus-0">Selling Now · 100 Left</span>
+      </div>
+
+      <!-- Tier 2: Standard -->
+      <div class="tier-card upcoming-tier" id="tierCard-1">
+        <h3 class="tier-name">Standard Tier</h3>
+        <div class="tier-price-row">
+          <span class="tier-price-num"><sup>$</sup>20</span>
+        </div>
+        <p class="tier-desc">Tickets 101 to 200</p>
+        <span class="tier-status-pill" id="tierStatus-1">Upcoming</span>
+      </div>
+
+      <!-- Tier 3: Late -->
+      <div class="tier-card upcoming-tier" id="tierCard-2">
+        <h3 class="tier-name">Late Entry</h3>
+        <div class="tier-price-row">
+          <span class="tier-price-num"><sup>$</sup>25</span>
+        </div>
+        <p class="tier-desc">Final remaining batch (201+)</p>
+        <span class="tier-status-pill" id="tierStatus-2">Upcoming</span>
+      </div>
+
+    </div>
+
+    <!-- Progress Indicator -->
+    <div class="tier-progress-card">
+      <div class="progress-labels">
+        <span>Current Tier: <strong id="progressTierName" style="color:var(--purple-glow);">Early Bird ($15)</strong></span>
+        <span><strong id="progressSoldNum">0</strong> Sold · <strong id="progressRemainingNum">100</strong> Left in Tier</span>
+      </div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progressBarFill" style="width: 0%;"></div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════
+         CHECKOUT FORM (VENMO & CREDIT CARD)
+         ════════════════════════════════════════════════════════════ -->
+    <div class="checkout-box" id="checkout">
+      <div class="checkout-header">
+        <h3 class="checkout-title">Purchase Admission Ticket</h3>
+        <p class="checkout-tier-tag" id="checkoutTierTag">Purchasing: Early Bird Admission ($15.00)</p>
+      </div>
+
+      <!-- Payment Method Tabs -->
+      <div class="payment-tabs">
+        <button type="button" class="tab-btn active" id="tabVenmoBtn" onclick="switchPaymentTab('venmo')">
+          <span style="font-size:1.1rem;">📱</span>
+          <span>Venmo (Fastest)</span>
+        </button>
+        <button type="button" class="tab-btn" id="tabCardBtn" onclick="switchPaymentTab('card')">
+          <span style="font-size:1.1rem;">💳</span>
+          <span>Debit / Credit Card</span>
+        </button>
+      </div>
+
+      <!-- Attendee Information -->
+      <div class="form-full">
+        <label class="form-label" for="attendeeName">Full Name (Attendee) *</label>
+        <div class="input-wrapper">
+          <input type="text" id="attendeeName" class="form-input" placeholder="e.g. Juan Serrano" required>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label class="form-label" for="attendeeEmail">Email Address (for QR ticket) *</label>
+          <div class="input-wrapper">
+            <input type="email" id="attendeeEmail" class="form-input" placeholder="juan@gmail.com" required>
+          </div>
+        </div>
+        <div>
+          <label class="form-label" for="attendeePhone">Phone Number (Optional)</label>
+          <div class="input-wrapper">
+            <input type="tel" id="attendeePhone" class="form-input" placeholder="(805) 555-0192">
+          </div>
+        </div>
+      </div>
+
+      <!-- VENMO PANEL -->
+      <div id="venmoPanel" class="tab-panel active">
+        <div class="venmo-instructions-card">
+          <div class="venmo-header-line">
+            <span class="venmo-logo-text">venmo</span>
+            <span class="venmo-handle-tag" id="displayVenmoHandle">@Betas_UCSB</span>
+          </div>
+          <div class="venmo-steps">
+            <div class="step-item">
+              <span class="step-num">1</span>
+              <span>Clicking <strong>"Pay via Venmo"</strong> launches the Venmo app with the ticket price and your reference note pre-filled.</span>
+            </div>
+            <div class="step-item">
+              <span class="step-num">2</span>
+              <span>Send payment to the organizer Venmo handle shown above.</span>
+            </div>
+            <div class="step-item">
+              <span class="step-num">3</span>
+              <span>Your unique encrypted QR code ticket pass will instantly appear for you to download or screenshot!</span>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" class="btn-venmo-submit" id="btnVenmoSubmit" onclick="handleVenmoCheckout()">
+          <span class="venmo-v-icon">V</span>
+          <span id="btnVenmoText">Pay $15.00 via Venmo & Get QR Pass</span>
+        </button>
+
+        <div class="security-badges">
+          <span>⚡ Direct to Organizer Venmo</span>
+          <span>🎟️ Instant QR Code Pass</span>
+          <span>🔒 Verified Single-Entry</span>
+        </div>
+      </div>
+
+      <!-- CARD PANEL -->
+      <div id="cardPanel" class="tab-panel">
+        <div style="text-align: center;">
+          <span class="test-card-pill" onclick="autoFillTestCard()">
+            ⚡ Click to Auto-Fill Test Card (Instant Demo)
+          </span>
+        </div>
+
+        <form id="cardPaymentForm" autocomplete="on" onsubmit="handleCardCheckout(event)">
+          <!-- Card Number -->
+          <div class="form-full">
+            <label class="form-label" for="cardNumber">Card Number</label>
+            <div class="input-wrapper">
+              <input type="text" id="cardNumber" class="form-input" placeholder="4242  4242  4242  4242" maxlength="19">
+              <span class="card-brand-badge" id="cardBrandBadge">Card</span>
+            </div>
+          </div>
+
+          <!-- Expiry & CVC -->
+          <div class="form-row">
+            <div>
+              <label class="form-label" for="cardExp">Expires (MM/YY)</label>
+              <div class="input-wrapper">
+                <input type="text" id="cardExp" class="form-input" placeholder="MM / YY" maxlength="7">
+              </div>
+            </div>
+            <div>
+              <label class="form-label" for="cardCvc">Security Code (CVC)</label>
+              <div class="input-wrapper">
+                <input type="text" id="cardCvc" class="form-input" placeholder="CVC" maxlength="4">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-full">
+            <label class="form-label" for="cardZip">Billing ZIP Code</label>
+            <div class="input-wrapper">
+              <input type="text" id="cardZip" class="form-input" placeholder="93106" maxlength="5">
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <button type="submit" class="btn-pay-submit" id="btnPaySubmit">
+            <span id="btnPayIcon">🔒</span>
+            <span id="btnPayText">Pay $15.00 with Card · Get QR Ticket</span>
+          </button>
+
+          <div class="security-badges">
+            <span>🔒 256-Bit SSL Encrypted</span>
+            <span>💳 Visa · MC · Amex · Discover</span>
+            <span>⚡ Instant Digital Ticket</span>
+          </div>
+        </form>
+      </div>
+
+    </div>
+
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       SCHOLARSHIP & BROTHERHOOD SECTION (Vamos a Volar)
+       ════════════════════════════════════════════════════════════════ -->
+  <section class="scholarship-section" id="scholarship">
+    <div class="section-container" style="padding-top: 0; padding-bottom: 0;">
+      
+      <div class="scholarship-grid">
+        
+        <!-- Left: Uploaded Scholarship Flyers -->
+        <div class="scholarship-flyers-wrap">
+          <div class="scholarship-flyer-card" onclick="openLightbox('/images/scholarship1.jpg')">
+            <img src="/images/scholarship1.jpg" alt="Vamos a Volar Scholarship Tribute">
+          </div>
+          <div class="scholarship-flyer-card" onclick="openLightbox('/images/scholarship2.jpg')">
+            <img src="/images/scholarship2.jpg" alt="Scholarship Criteria & Information">
+          </div>
+        </div>
+
+        <!-- Right: Meaning & Impact -->
+        <div class="scholarship-info-card">
+          <span class="tribute-badge">Honoring Brother Hector "Hermes" Serrano</span>
+          <h2 class="scholarship-title">Vamos a Volar Scholarship</h2>
+          <p class="scholarship-sub">Presented by the Honorable Sigma Lambda Beta International Fraternity Inc.</p>
+
+          <ul class="scholarship-points">
+            <li>
+              <span class="bullet">✦</span>
+              <span>Tailored directly to support <strong>low-income, first-generation college students</strong> at UCSB of any academic year.</span>
+            </li>
+            <li>
+              <span class="bullet">✦</span>
+              <span>Awarding <strong>THREE scholarship winners with $400 each</strong> to assist with textbooks, tuition, and collegiate materials.</span>
+            </li>
+            <li>
+              <span class="bullet">✦</span>
+              <span>A portion of proceeds from Banda Night directly champions this noble initiative and perpetuates brother Hector's enduring legacy.</span>
+            </li>
+          </ul>
+
+          <div class="scholarship-impact-box">
+            <div class="impact-icon">🕊️</div>
+            <div class="impact-text">
+              By joining us at Banda Night, you are directly investing in our collegiate community. <strong>Your ticket makes an impact.</strong>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       EVENT GALLERY (Vibe Speaks For Itself)
+       ════════════════════════════════════════════════════════════════ -->
+  <section class="section-container" id="gallery">
+    <div class="section-header">
+      <span class="section-eyebrow">✦ Unforgettable Moments ✦</span>
+      <h2 class="section-title">The Vibe Speaks for Itself</h2>
+      <p class="section-desc">Experience the energy, the culture, and the brotherhood of Banda Night.</p>
+    </div>
+
+    <div class="gallery-grid">
+      
+      <!-- Photo 5: Brothers group on hay bales (wide feature) -->
+      <div class="gallery-tile tile-wide-8" onclick="openLightbox('/images/photo5.jpg')">
+        <img src="/images/photo5.jpg" alt="Sigma Lambda Beta Brothers" loading="lazy">
+        <div class="tile-overlay">
+          <span class="tile-caption">Brothers of Sigma Lambda Beta · Western Night</span>
+        </div>
+      </div>
+
+      <!-- Photo 1: Photo booth purple stars (vertical portrait tall) -->
+      <div class="gallery-tile tile-wide-4 tile-tall" onclick="openLightbox('/images/photo1.jpg')">
+        <img src="/images/photo1.jpg" alt="Photo Booth Night" loading="lazy">
+        <div class="tile-overlay">
+          <span class="tile-caption">Violet Backdrop Photo Booth</span>
+        </div>
+      </div>
+
+      <!-- Photo 2: Live Banda performance -->
+      <div class="gallery-tile tile-wide-4" onclick="openLightbox('/images/photo2.jpg')">
+        <img src="/images/photo2.jpg" alt="Live Banda Performance" loading="lazy">
+        <div class="tile-overlay">
+          <span class="tile-caption">Live Banda Sinaloense Performance</span>
+        </div>
+      </div>
+
+      <!-- Photo 3: Good times with brothers & guests -->
+      <div class="gallery-tile tile-wide-4" onclick="openLightbox('/images/photo3.jpg')">
+        <img src="/images/photo3.jpg" alt="Brothers and guests enjoying night" loading="lazy">
+        <div class="tile-overlay">
+          <span class="tile-caption">Brotherhood & Community Vibes</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       DIGITAL TICKET PASS MODAL (With Unique QR Code)
+       ════════════════════════════════════════════════════════════════ -->
+  <div class="modal-backdrop" id="ticketPassModal">
+    <div class="pass-card">
+      
+      <div class="pass-header">
+        <span class="pass-header-title">ΣΛΒ · BANDA NIGHT</span>
+        <span class="pass-header-tag" id="passTagTier">EARLY BIRD</span>
+      </div>
+
+      <div class="pass-body">
+        <h3 class="pass-event-title">Official Admission Pass</h3>
+        <p class="pass-event-date">Friday, January 9th, 2026 · Sigma Gamma Chapter</p>
+
+        <!-- Venmo Notice Banner (shown if method is Venmo) -->
+        <div id="passVenmoNotice" style="display:none; background:rgba(0, 140, 255, 0.12); border:1px solid rgba(0, 140, 255, 0.4); border-radius:12px; padding:0.85rem 1rem; margin-bottom:1.25rem; font-size:0.82rem; color:#bae6fd; text-align:left; line-height:1.45;">
+          📱 <strong>Venmo Payment:</strong> Sent to <strong id="passVenmoTarget" style="color:#ffffff;">@...</strong><br>
+          Ensure your payment note is: <strong id="passVenmoRef" style="color:#ffffff; font-family:monospace;"></strong>.<br>
+          <span style="font-size:0.75rem; color:#7dd3fc;">Door staff will verify entry against organizer records.</span>
+        </div>
+
+        <!-- QR Code -->
+        <div class="pass-qr-box">
+          <img id="passQrImg" src="" alt="Unique Ticket QR Code">
+        </div>
+
+        <!-- Ticket Details -->
+        <div class="pass-details-table">
+          <div class="pass-row">
+            <span class="pass-lbl">Attendee Name</span>
+            <span class="pass-val" id="passAttendeeName">—</span>
+          </div>
+          <div class="pass-row">
+            <span class="pass-lbl">Ticket Tier</span>
+            <span class="pass-val" id="passTierName">—</span>
+          </div>
+          <div class="pass-row">
+            <span class="pass-lbl">Amount</span>
+            <span class="pass-val" id="passPricePaid">—</span>
+          </div>
+          <div class="pass-row">
+            <span class="pass-lbl">Payment Status</span>
+            <span class="pass-val" id="passPaymentStatus" style="color:#4ade80;">PAID ✅</span>
+          </div>
+          <div class="pass-row">
+            <span class="pass-lbl">Payment Method</span>
+            <span class="pass-val" id="passCardInfo">Card ending in ••••</span>
+          </div>
+          <div class="pass-row">
+            <span class="pass-lbl">Ticket ID</span>
+            <span class="pass-val code" id="passTicketId">SLB-000000</span>
+          </div>
+        </div>
+
+        <p style="font-size:0.75rem; color:var(--silver-500);">
+          Show this QR code at the entrance. Each QR code is uniquely encrypted and valid for single entry.
+        </p>
+      </div>
+
+      <div class="pass-tear-line"></div>
+
+      <div class="pass-actions">
+        <button class="pass-btn-download" onclick="downloadPass()">📥 Download Pass</button>
+        <button class="pass-btn-close" onclick="closeTicketModal()">Close</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- LIGHTBOX MODAL -->
+  <div class="lightbox-modal" id="lightboxModal" onclick="closeLightbox()">
+    <img id="lightboxImg" src="" alt="Zoomed view">
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <div class="footer-title">SIGMA LAMBDA BETA INTERNATIONAL FRATERNITY INC.</div>
+    <p class="footer-sub">The Sigma Gamma Chapter · Banda Night 2026<br>In Honor of Brother Hector "Hermes" Serrano</p>
+    <div class="footer-links">
+      <a href="#about">Event Details</a>
+      <a href="#tickets">Tickets</a>
+      <a href="#scholarship">Scholarship Tribute</a>
+      <a href="/admin.html">Organizer Dashboard</a>
+      <a href="/scanner.html">Door Scanner</a>
+    </div>
+    <p class="footer-copy">© 2026 Sigma Lambda Beta. Opportunity for Wisdom, Wisdom for Culture. All rights reserved.</p>
+  </footer>
+
+  <!-- QR Code Generator Library -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+
+  <script>
+    // ════════════════════════════════════════════════════════════════
+    // SPARKLES GENERATION
+    // ════════════════════════════════════════════════════════════════
+    const sparkleContainer = document.getElementById('sparkleField');
+    for (let i = 0; i < 35; i++) {
+      const sp = document.createElement('div');
+      sp.className = 'sparkle';
+      sp.style.left = Math.random() * 100 + '%';
+      sp.style.top = Math.random() * 100 + '%';
+      sp.style.animationDelay = (Math.random() * 5) + 's';
+      sp.style.animationDuration = (2 + Math.random() * 4) + 's';
+      sparkleContainer.appendChild(sp);
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // COUNTDOWN TIMER TO JANUARY 9TH, 2026
+    // ════════════════════════════════════════════════════════════════
+    function updateCountdown() {
+      const eventDate = new Date('2026-01-09T20:00:00-08:00').getTime();
+      const now = new Date().getTime();
+      let diff = eventDate - now;
+
+      if (diff < 0) {
+        // Event has arrived or recurring placeholder
+        diff = 0;
+      }
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const secs = Math.floor((diff % (1000 * 60)) / 1000);
+
+      document.getElementById('cdDays').textContent = String(days).padStart(2, '0');
+      document.getElementById('cdHours').textContent = String(hours).padStart(2, '0');
+      document.getElementById('cdMins').textContent = String(mins).padStart(2, '0');
+      document.getElementById('cdSecs').textContent = String(secs).padStart(2, '0');
+    }
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+
+    // ════════════════════════════════════════════════════════════════
+    // TIER STATE & LIVE REFRESH
+    // ════════════════════════════════════════════════════════════════
+    let currentTierData = null;
+
+    async function fetchTierStatus() {
+      try {
+        const res = await fetch('/api/tier');
+        const data = await res.json();
+        currentTierData = data;
+
+        const currentTier = data.currentTier;
+        const tierIdx = data.tierIndex;
+
+        // Update hero price tag
+        document.getElementById('heroPriceTag').textContent = `$${currentTier.price} · ${currentTier.name}`;
+
+        // Update 3 tier cards
+        for (let i = 0; i < 3; i++) {
+          const card = document.getElementById(`tierCard-${i}`);
+          const pill = document.getElementById(`tierStatus-${i}`);
+
+          card.classList.remove('active-tier', 'sold-out-tier', 'upcoming-tier');
+
+          if (i < tierIdx) {
+            card.classList.add('sold-out-tier');
+            pill.textContent = 'SOLD OUT';
+          } else if (i === tierIdx) {
+            card.classList.add('active-tier');
+            pill.textContent = `Selling Now · ${data.remainingInTier} Left`;
+          } else {
+            card.classList.add('upcoming-tier');
+            pill.textContent = 'Upcoming';
+          }
+        }
+
+        // Update progress card
+        document.getElementById('progressTierName').textContent = `${currentTier.name} ($${currentTier.price})`;
+        document.getElementById('progressSoldNum').textContent = data.ticketsSold;
+        document.getElementById('progressRemainingNum').textContent = data.remainingInTier;
+
+        let pct = 0;
+        if (currentTier.limit && currentTier.limit !== Infinity) {
+          const inCurrent = data.ticketsSold % currentTier.limit;
+          pct = Math.min(100, Math.round((inCurrent / currentTier.limit) * 100));
+        }
+        document.getElementById('progressBarFill').style.width = pct + '%';
+
+        // Update checkout form tags
+        document.getElementById('checkoutTierTag').textContent = `Purchasing: ${currentTier.name} ($${currentTier.price}.00)`;
+        document.getElementById('btnPayText').textContent = `Pay $${currentTier.price}.00 with Card · Get QR Ticket`;
+        document.getElementById('btnVenmoText').textContent = `Pay $${currentTier.price}.00 via Venmo & Get QR Pass`;
+        const venmoHandle = data.venmoUsername || 'Betas_UCSB';
+        document.getElementById('displayVenmoHandle').textContent = `@${venmoHandle}`;
+
+      } catch (err) {
+        console.error('Error fetching tier status:', err);
+      }
+    }
+
+    fetchTierStatus();
+    setInterval(fetchTierStatus, 10000); // live sync every 10s
+
+    // ════════════════════════════════════════════════════════════════
+    // TABS TOGGLE (VENMO vs CARD)
+    // ════════════════════════════════════════════════════════════════
+    let currentPaymentMode = 'venmo';
+
+    function switchPaymentTab(mode) {
+      currentPaymentMode = mode;
+      const venmoBtn = document.getElementById('tabVenmoBtn');
+      const cardBtn = document.getElementById('tabCardBtn');
+      const venmoPanel = document.getElementById('venmoPanel');
+      const cardPanel = document.getElementById('cardPanel');
+
+      if (mode === 'venmo') {
+        venmoBtn.classList.add('active');
+        cardBtn.classList.remove('active');
+        venmoPanel.classList.add('active');
+        cardPanel.classList.remove('active');
+      } else {
+        cardBtn.classList.add('active');
+        venmoBtn.classList.remove('active');
+        cardPanel.classList.add('active');
+        venmoPanel.classList.remove('active');
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // CARD NUMBER FORMATTING & BRAND DETECTION
+    // ════════════════════════════════════════════════════════════════
+    const cardInput = document.getElementById('cardNumber');
+    const brandBadge = document.getElementById('cardBrandBadge');
+
+    cardInput.addEventListener('input', (e) => {
+      let value = e.target.value.replace(/\D/g, '');
+      if (value.length > 16) value = value.slice(0, 16);
+
+      // Add spaces every 4 digits
+      const formatted = value.match(/.{1,4}/g)?.join('  ') || value;
+      e.target.value = formatted;
+
+      // Detect brand
+      if (/^4/.test(value)) {
+        brandBadge.textContent = 'Visa';
+        brandBadge.style.color = '#60a5fa';
+      } else if (/^(5[1-5]|222[1-9]|22[3-9]|2[3-6]|27[01]|2720)/.test(value)) {
+        brandBadge.textContent = 'Mastercard';
+        brandBadge.style.color = '#f97316';
+      } else if (/^3[47]/.test(value)) {
+        brandBadge.textContent = 'Amex';
+        brandBadge.style.color = '#38bdf8';
+      } else if (/^6(?:011|5)/.test(value)) {
+        brandBadge.textContent = 'Discover';
+        brandBadge.style.color = '#fbbf24';
+      } else {
+        brandBadge.textContent = 'Card';
+        brandBadge.style.color = 'var(--purple-400)';
+      }
+    });
+
+    // Expiration date formatting MM / YY
+    const expInput = document.getElementById('cardExp');
+    expInput.addEventListener('input', (e) => {
+      let val = e.target.value.replace(/\D/g, '');
+      if (val.length > 4) val = val.slice(0, 4);
+      if (val.length >= 3) {
+        e.target.value = val.slice(0, 2) + ' / ' + val.slice(2);
+      } else {
+        e.target.value = val;
+      }
+    });
+
+    // Quick auto-fill test card
+    function autoFillTestCard() {
+      document.getElementById('attendeeName').value = 'Alex Rodriguez';
+      document.getElementById('attendeeEmail').value = 'alex.rodriguez@ucsb.edu';
+      document.getElementById('attendeePhone').value = '(805) 893-8000';
+      document.getElementById('cardNumber').value = '4242  4242  4242  4242';
+      document.getElementById('cardExp').value = '12 / 28';
+      document.getElementById('cardCvc').value = '789';
+      document.getElementById('cardZip').value = '93106';
+      brandBadge.textContent = 'Visa';
+      brandBadge.style.color = '#60a5fa';
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // SHARED QR TICKET PASS DISPLAY
+    // ════════════════════════════════════════════════════════════════
+    async function showDigitalPass(t, isVenmo, venmoHandle, deepLink) {
+      document.getElementById('passTagTier').textContent = t.tier.toUpperCase();
+      document.getElementById('passAttendeeName').textContent = t.buyerName;
+      document.getElementById('passTierName').textContent = t.tier;
+      document.getElementById('passPricePaid').textContent = `$${t.price}.00`;
+      document.getElementById('passTicketId').textContent = t.ticketId;
+
+      const venmoNotice = document.getElementById('passVenmoNotice');
+      const passPaymentStatus = document.getElementById('passPaymentStatus');
+      const passCardInfo = document.getElementById('passCardInfo');
+
+      if (isVenmo) {
+        venmoNotice.style.display = 'block';
+        document.getElementById('passVenmoTarget').textContent = `@${venmoHandle}`;
+        document.getElementById('passVenmoRef').textContent = `Banda Night - ${t.ticketId}`;
+        passPaymentStatus.textContent = 'VENMO PENDING ⏳';
+        passPaymentStatus.style.color = '#facc15';
+        passCardInfo.textContent = `Venmo (@${venmoHandle})`;
+      } else {
+        venmoNotice.style.display = 'none';
+        passPaymentStatus.textContent = 'PAID IN FULL ✅';
+        passPaymentStatus.style.color = '#4ade80';
+        passCardInfo.textContent = `${t.cardBrand || 'Card'} •••• ${t.cardLast4 || '4242'}`;
+      }
+
+      // Generate QR Code with standard JSON cryptographic payload
+      const qrPayload = JSON.stringify({
+        ticketId: t.ticketId,
+        event: 'Banda Night 2026 - Sigma Lambda Beta',
+        name: t.buyerName,
+        tier: t.tier,
+        price: t.price,
+        issued: t.purchasedAt,
+        token: t.securityToken,
+      });
+
+      const qrDataUrl = await QRCode.toDataURL(qrPayload, {
+        width: 500,
+        margin: 2,
+        color: {
+          dark: '#0c0418',
+          light: '#ffffff',
+        },
+      });
+
+      document.getElementById('passQrImg').src = qrDataUrl;
+      document.getElementById('ticketPassModal').classList.add('open');
+      fetchTierStatus();
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // VENMO CHECKOUT HANDLER
+    // ════════════════════════════════════════════════════════════════
+    async function handleVenmoCheckout() {
+      const name = document.getElementById('attendeeName').value.trim();
+      const email = document.getElementById('attendeeEmail').value.trim();
+      const phone = document.getElementById('attendeePhone').value.trim();
+
+      if (!name) {
+        alert('Please enter your full name.');
+        document.getElementById('attendeeName').focus();
+        return;
+      }
+      if (!email || !email.includes('@')) {
+        alert('Please enter a valid email address.');
+        document.getElementById('attendeeEmail').focus();
+        return;
+      }
+
+      const venmoBtn = document.getElementById('btnVenmoSubmit');
+      const venmoText = document.getElementById('btnVenmoText');
+      venmoBtn.disabled = true;
+      venmoText.textContent = 'Preparing Venmo Link & Pass...';
+
+      try {
+        const res = await fetch('/api/purchase', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            email,
+            phone,
+            paymentMethod: 'venmo',
+          }),
+        });
+
+        const data = await res.json();
+
+        if (data.success && data.ticket) {
+          // Open Venmo app or web payment link
+          if (data.venmoDeepLink) {
+            window.open(data.venmoDeepLink, '_blank');
+          }
+
+          // Show QR Ticket modal immediately
+          await showDigitalPass(data.ticket, true, data.venmoUsername || currentTierData?.venmoUsername || 'Betas_UCSB', data.venmoDeepLink);
+
+          // Clear inputs
+          document.getElementById('attendeeName').value = '';
+          document.getElementById('attendeeEmail').value = '';
+          document.getElementById('attendeePhone').value = '';
+        } else {
+          alert(data.error || 'Could not initiate purchase. Please try again.');
+        }
+      } catch (err) {
+        console.error('Venmo checkout error:', err);
+        alert('Connection error. Please try again.');
+      } finally {
+        venmoBtn.disabled = false;
+        if (currentTierData) {
+          venmoText.textContent = `Pay $${currentTierData.currentTier.price}.00 via Venmo & Get QR Pass`;
+        } else {
+          venmoText.textContent = 'Pay via Venmo & Get QR Pass';
+        }
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // CARD CHECKOUT HANDLER
+    // ════════════════════════════════════════════════════════════════
+    async function handleCardCheckout(e) {
+      e.preventDefault();
+
+      const name = document.getElementById('attendeeName').value.trim();
+      const email = document.getElementById('attendeeEmail').value.trim();
+      const phone = document.getElementById('attendeePhone').value.trim();
+      const cardNumber = document.getElementById('cardNumber').value;
+      const cardExp = document.getElementById('cardExp').value;
+      const cardCvc = document.getElementById('cardCvc').value;
+      const zip = document.getElementById('cardZip').value;
+
+      if (!name) {
+        alert('Please enter your full name.');
+        document.getElementById('attendeeName').focus();
+        return;
+      }
+      if (!email || !email.includes('@')) {
+        alert('Please enter a valid email address.');
+        document.getElementById('attendeeEmail').focus();
+        return;
+      }
+      if (!cardNumber || !cardExp || !cardCvc) {
+        alert('Please fill out all card payment details.');
+        return;
+      }
+
+      const payBtn = document.getElementById('btnPaySubmit');
+      const payText = document.getElementById('btnPayText');
+      const payIcon = document.getElementById('btnPayIcon');
+
+      payBtn.disabled = true;
+      payIcon.textContent = '⏳';
+      payText.textContent = 'Authorizing Payment...';
+
+      try {
+        const res = await fetch('/api/purchase', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            email,
+            phone,
+            paymentMethod: 'card',
+            cardNumber,
+            cardExp,
+            cardCvc,
+            zip,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (data.success && data.ticket) {
+          await showDigitalPass(data.ticket, false, '', null);
+
+          // Reset inputs
+          document.getElementById('attendeeName').value = '';
+          document.getElementById('attendeeEmail').value = '';
+          document.getElementById('attendeePhone').value = '';
+          document.getElementById('cardPaymentForm').reset();
+          brandBadge.textContent = 'Card';
+          brandBadge.style.color = 'var(--purple-400)';
+        } else {
+          alert(data.error || 'Payment failed. Please verify your card details.');
+        }
+      } catch (err) {
+        console.error('Card payment error:', err);
+        alert('Network connection error. Please try again.');
+      } finally {
+        payBtn.disabled = false;
+        payIcon.textContent = '🔒';
+        if (currentTierData) {
+          payText.textContent = `Pay $${currentTierData.currentTier.price}.00 with Card · Get QR Ticket`;
+        } else {
+          payText.textContent = 'Pay with Card · Get QR Ticket';
+        }
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // TICKET PASS MODAL ACTIONS
+    // ════════════════════════════════════════════════════════════════
+    function closeTicketModal() {
+      document.getElementById('ticketPassModal').classList.remove('open');
+    }
+
+    function downloadPass() {
+      const qrImg = document.getElementById('passQrImg');
+      const ticketId = document.getElementById('passTicketId').textContent;
+      const a = document.createElement('a');
+      a.href = qrImg.src;
+      a.download = `Banda-Night-Pass-${ticketId}.png`;
+      a.click();
+    }
+
+    document.getElementById('ticketPassModal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('ticketPassModal')) {
+        closeTicketModal();
+      }
+    });
+
+    // ════════════════════════════════════════════════════════════════
+    // LIGHTBOX FOR PHOTOS & FLYERS
+    // ════════════════════════════════════════════════════════════════
+    function openLightbox(src) {
+      document.getElementById('lightboxImg').src = src;
+      document.getElementById('lightboxModal').classList.add('open');
+    }
+
+    function closeLightbox() {
+      document.getElementById('lightboxModal').classList.remove('open');
+    }
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "name": "banda-night-tickets",
+  "version": "1.0.0",
+  "description": "Sigma Lambda Beta - Banda Night 2026 Ticket Sales",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {}
+}

@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Door Scanner | Banda Night 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: #05010a;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      text-align: center;
+    }
+    .header-tag {
+      font-size: 0.75rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #c084fc;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+    }
+    h1 {
+      font-family: 'Cinzel', serif;
+      font-size: 2rem;
+      margin-bottom: 0.4rem;
+      background: linear-gradient(135deg, #ffffff 0%, #e879f9 70%, #c084fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .sub {
+      color: #94a3b8;
+      font-size: 0.85rem;
+      margin-bottom: 1.75rem;
+    }
+    .sub a { color: #c084fc; text-decoration: none; }
+    .sub a:hover { text-decoration: underline; }
+
+    .scanner-box {
+      background: rgba(18, 7, 36, 0.85);
+      border: 1px solid rgba(192, 132, 252, 0.35);
+      border-radius: 20px;
+      padding: 2rem;
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(168, 85, 247, 0.2);
+    }
+
+    #reader {
+      width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+      border: 1px solid rgba(168, 85, 247, 0.25);
+    }
+
+    .divider {
+      position: relative;
+      margin: 1.25rem 0;
+      text-align: center;
+    }
+    .divider::before {
+      content: '';
+      position: absolute;
+      left: 0; right: 0; top: 50%;
+      height: 1px;
+      background: rgba(168, 85, 247, 0.2);
+    }
+    .divider span {
+      position: relative;
+      background: #0d031a;
+      padding: 0 1rem;
+      font-size: 0.75rem;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 0.5rem;
+    }
+    input {
+      flex: 1;
+      padding: 0.9rem 1.1rem;
+      background: rgba(8, 2, 18, 0.9);
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      border-radius: 10px;
+      color: white;
+      font-size: 0.95rem;
+      outline: none;
+      font-family: inherit;
+    }
+    input:focus {
+      border-color: #e879f9;
+      box-shadow: 0 0 15px rgba(217, 70, 239, 0.4);
+    }
+
+    button.btn-checkin {
+      padding: 0.9rem 1.4rem;
+      background: linear-gradient(135deg, #9333ea, #6b21a8);
+      border: 1px solid #c084fc;
+      border-radius: 10px;
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.25s;
+    }
+    button.btn-checkin:hover {
+      background: #a855f7;
+      box-shadow: 0 0 20px rgba(168, 85, 247, 0.5);
+    }
+
+    /* Result Cards */
+    .scan-result {
+      margin-top: 1.5rem;
+      padding: 1.5rem;
+      border-radius: 14px;
+      display: none;
+      animation: popIn 0.3s ease;
+    }
+    @keyframes popIn {
+      from { transform: scale(0.95); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .scan-result.valid {
+      display: block;
+      background: rgba(34, 197, 94, 0.12);
+      border: 2px solid #22c55e;
+      color: #4ade80;
+    }
+    .scan-result.invalid {
+      display: block;
+      background: rgba(239, 68, 68, 0.12);
+      border: 2px solid #ef4444;
+      color: #f87171;
+    }
+    .scan-result.already {
+      display: block;
+      background: rgba(234, 179, 8, 0.12);
+      border: 2px solid #eab308;
+      color: #facc15;
+    }
+
+    .result-icon { font-size: 2.8rem; margin-bottom: 0.4rem; }
+    .result-msg { font-size: 1.15rem; font-weight: 800; margin-bottom: 0.5rem; }
+    .result-details { font-size: 0.9rem; color: white; opacity: 0.9; }
+  </style>
+</head>
+<body>
+
+  <div class="header-tag">Sigma Lambda Beta · Sigma Gamma Chapter</div>
+  <h1>Entrance Door Scanner</h1>
+  <p class="sub">Banda Night 2026 &nbsp;·&nbsp; <a href="/">← Event Page</a> &nbsp;·&nbsp; <a href="/admin.html">Dashboard 📊</a></p>
+
+  <div class="scanner-box">
+    
+    <!-- Camera Scanner View -->
+    <div id="reader"></div>
+
+    <div class="divider"><span>OR MANUAL CODE ENTRY</span></div>
+
+    <!-- Manual Code Entry -->
+    <div class="input-row">
+      <input type="text" id="manualTicketInput" placeholder="Scan or enter SLB-XXXXXX..." autofocus>
+      <button class="btn-checkin" onclick="submitCheckin()">Check In</button>
+    </div>
+
+    <!-- Live Scan Result Feedback -->
+    <div class="scan-result" id="scanResult">
+      <div class="result-icon" id="resIcon">✅</div>
+      <div class="result-msg" id="resMsg">Valid Ticket</div>
+      <div class="result-details" id="resDetails">Attendee Name • Early Bird</div>
+    </div>
+
+  </div>
+
+  <script>
+    async function processCode(code) {
+      if (!code) return;
+      
+      let ticketId = code.trim();
+      try {
+        if (ticketId.startsWith('{')) {
+          const parsed = JSON.parse(ticketId);
+          if (parsed.ticketId) ticketId = parsed.ticketId;
+        }
+      } catch (e) {}
+
+      try {
+        const res = await fetch('/api/checkin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ticketId }),
+        });
+        const data = await res.json();
+
+        const box = document.getElementById('scanResult');
+        box.className = 'scan-result';
+
+        if (data.valid) {
+          const isPending = data.ticket.paymentStatus === 'VENMO_PENDING';
+          box.classList.add(isPending ? 'already' : 'valid');
+          document.getElementById('resIcon').textContent = isPending ? '⚠️' : '✅';
+          document.getElementById('resMsg').textContent = isPending ? 'ADMIT — VENMO PAYMENT PENDING' : 'ADMISSION GRANTED!';
+          document.getElementById('resDetails').textContent = `${data.ticket.buyerName} · ${data.ticket.tier} (${data.ticket.ticketId}) — ${isPending ? 'Ask attendee to show completed Venmo payment transfer.' : 'Payment Confirmed'}`;
+        } else if (data.alreadyCheckedIn) {
+          box.classList.add('already');
+          document.getElementById('resIcon').textContent = '⚠️';
+          document.getElementById('resMsg').textContent = 'ALREADY CHECKED IN!';
+          document.getElementById('resDetails').textContent = `${data.ticket?.buyerName || ''} · ${data.message}`;
+        } else {
+          box.classList.add('invalid');
+          document.getElementById('resIcon').textContent = '❌';
+          document.getElementById('resMsg').textContent = 'INVALID TICKET';
+          document.getElementById('resDetails').textContent = data.message || 'Ticket not found in database.';
+        }
+
+        document.getElementById('manualTicketInput').value = '';
+        document.getElementById('manualTicketInput').focus();
+
+      } catch (err) {
+        alert('Verification connection error.');
+      }
+    }
+
+    function submitCheckin() {
+      const code = document.getElementById('manualTicketInput').value;
+      processCode(code);
+    }
+
+    document.getElementById('manualTicketInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') submitCheckin();
+    });
+
+    // Initialize HTML5 Camera Scanner if supported
+    try {
+      const html5QrCode = new Html5Qrcode("reader");
+      html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        (decodedText) => {
+          processCode(decodedText);
+        },
+        () => {}
+      ).catch(() => {
+        document.getElementById('reader').style.display = 'none';
+      });
+    } catch (e) {
+      document.getElementById('reader').style.display = 'none';
+    }
+  </script>
+
+</body>
+</html>
