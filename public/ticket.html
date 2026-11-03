@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Official Admission Pass — Banda Night 2026 | Sigma Lambda Beta</title>
+  <meta name="theme-color" content="#0c0418">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #07020f;
+      --bg-card: #130524;
+      --purple-400: #c084fc;
+      --purple-500: #a855f7;
+      --purple-600: #9333ea;
+      --magenta: #d946ef;
+      --gold: #fbbf24;
+      --silver-400: #cbd5e1;
+      --silver-500: #94a3b8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: radial-gradient(circle at 50% 10%, #20073b 0%, #07020f 85%);
+      color: #ffffff;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem 3rem;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 440px;
+    }
+
+    .site-nav-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--purple-400);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 700;
+      margin-bottom: 1.25rem;
+      transition: color 0.2s ease;
+    }
+    .site-nav-back:hover {
+      color: #ffffff;
+    }
+
+    /* Pass Card */
+    .pass-card {
+      position: relative;
+      background: linear-gradient(145deg, #150628 0%, #0d031a 50%, #080112 100%);
+      border: 2px solid var(--purple-400);
+      border-radius: 24px;
+      width: 100%;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.9), 0 0 50px rgba(168, 85, 247, 0.4);
+      overflow: hidden;
+      animation: passSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes passSlideUp {
+      from { transform: translateY(30px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .pass-header {
+      background: linear-gradient(90deg, #7e22ce 0%, #a855f7 50%, #d946ef 100%);
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .pass-header-title {
+      font-family: 'Cinzel', serif;
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: white;
+      letter-spacing: 1px;
+    }
+    .pass-header-tag {
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 0.25rem 0.65rem;
+      border-radius: 999px;
+    }
+
+    .pass-body {
+      padding: 2rem 1.75rem 1.5rem;
+      text-align: center;
+    }
+
+    .pass-event-title {
+      font-family: 'Cinzel', serif;
+      font-size: 1.55rem;
+      font-weight: 900;
+      color: white;
+      margin-bottom: 0.2rem;
+    }
+    .pass-event-date {
+      color: var(--purple-400);
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      margin-bottom: 1.25rem;
+    }
+
+    /* Venmo Alert Box */
+    .venmo-alert {
+      background: rgba(0, 140, 255, 0.15);
+      border: 1px solid rgba(0, 140, 255, 0.45);
+      border-radius: 14px;
+      padding: 1rem;
+      margin-bottom: 1.25rem;
+      font-size: 0.85rem;
+      color: #bae6fd;
+      text-align: left;
+      line-height: 1.45;
+    }
+    .venmo-alert strong { color: #ffffff; }
+
+    /* QR Code Box */
+    .pass-qr-box {
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 1.25rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.5rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 25px rgba(217, 70, 239, 0.35);
+      min-width: 240px;
+      min-height: 240px;
+      box-sizing: border-box;
+    }
+    .pass-qr-box img,
+    .pass-qr-box canvas {
+      width: 220px !important;
+      height: 220px !important;
+      max-width: 220px !important;
+      max-height: 220px !important;
+      display: block !important;
+      margin: 0 auto !important;
+    }
+
+    .pass-details-table {
+      background: rgba(88, 28, 135, 0.18);
+      border: 1px solid rgba(192, 132, 252, 0.2);
+      border-radius: 14px;
+      padding: 1rem 1.25rem;
+      text-align: left;
+      margin-bottom: 1.25rem;
+    }
+    .pass-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.4rem 0;
+      font-size: 0.85rem;
+    }
+    .pass-row:not(:last-child) {
+      border-bottom: 1px solid rgba(168, 85, 247, 0.1);
+    }
+    .pass-lbl {
+      color: var(--silver-500);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .pass-val {
+      font-weight: 700;
+      color: white;
+    }
+    .pass-val.code {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--purple-400);
+      font-size: 0.82rem;
+    }
+
+    .pass-tear-line {
+      position: relative;
+      height: 24px;
+      background: #07020f;
+      margin: 0 -2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .pass-tear-line::before,
+    .pass-tear-line::after {
+      content: '';
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      background: #07020f;
+      border-radius: 50%;
+      top: 0;
+    }
+    .pass-tear-line::before { left: -12px; }
+    .pass-tear-line::after { right: -12px; }
+    .pass-tear-line-dashed {
+      width: 80%;
+      border-top: 2px dashed rgba(168, 85, 247, 0.35);
+    }
+
+    .pass-actions {
+      padding: 1.5rem 1.75rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 0.85rem 1.25rem;
+      border-radius: 12px;
+      font-weight: 800;
+      font-size: 0.9rem;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      text-decoration: none;
+      transition: all 0.25s ease;
+      border: none;
+    }
+    .btn-download {
+      background: linear-gradient(135deg, var(--purple-600) 0%, var(--magenta) 100%);
+      color: white;
+      box-shadow: 0 4px 20px rgba(168, 85, 247, 0.4);
+    }
+    .btn-download:hover {
+      box-shadow: 0 6px 25px rgba(217, 70, 239, 0.6);
+      transform: translateY(-2px);
+    }
+    .btn-email {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      color: #ffffff;
+    }
+    .btn-email:hover {
+      background: rgba(168, 85, 247, 0.2);
+    }
+    .btn-venmo-pay {
+      background: #008cff;
+      color: #ffffff;
+      box-shadow: 0 4px 15px rgba(0, 140, 255, 0.4);
+    }
+
+    .loading-state {
+      padding: 4rem 2rem;
+      text-align: center;
+      color: var(--purple-400);
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+    .error-box {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid #ef4444;
+      border-radius: 14px;
+      padding: 1.5rem;
+      text-align: center;
+      margin: 2rem 0;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <a href="/" class="site-nav-back">← Back to Banda Night 2026</a>
+
+    <div id="loadingBox" class="loading-state">
+      ⏳ Loading your admission pass...
+    </div>
+
+    <div id="errorBox" class="error-box" style="display:none;">
+      <h3 style="color:#ef4444; margin-bottom:0.5rem;">Ticket Not Found</h3>
+      <p id="errorMsg" style="font-size:0.85rem; color:#fca5a5;">We could not locate this ticket. Please check your link or contact organizers.</p>
+      <a href="/" class="btn btn-email" style="margin-top:1rem;">Return to Event Page</a>
+    </div>
+
+    <div class="pass-card" id="passCard" style="display:none;">
+      <div class="pass-header">
+        <span class="pass-header-title">ΣΛΒ · BANDA NIGHT</span>
+        <span class="pass-header-tag" id="passTierTag">ADMISSION</span>
+      </div>
+
+      <div class="pass-body">
+        <h3 class="pass-event-title">Official Admission Pass</h3>
+        <p class="pass-event-date">Friday, January 9th, 2026 · Sigma Gamma Chapter</p>
+
+        <!-- Venmo Pending Warning -->
+        <div id="venmoAlert" class="venmo-alert" style="display:none;">
+          <div style="font-weight:700; margin-bottom:0.35rem; display:flex; align-items:center; gap:0.4rem;">
+            <span>📱</span> <span>Venmo Payment Pending</span>
+          </div>
+          <div>Recipient: <strong id="venmoTarget" style="color:#38bdf8;">@Betas_UCSB</strong></div>
+          <div>Note: <strong id="venmoNote" style="color:#ffffff; font-family:monospace; background:rgba(0,0,0,0.4); padding:0.15rem 0.4rem; border-radius:4px;"></strong></div>
+          <div style="margin-top:0.75rem;">
+            <a id="venmoPayBtn" href="#" target="_blank" class="btn btn-venmo-pay">
+              🚀 Open Venmo to Complete Payment
+            </a>
+          </div>
+          <div style="font-size:0.72rem; color:#93c5fd; margin-top:0.5rem; text-align:center;">
+            This page will automatically update once payment is confirmed by organizers.
+          </div>
+        </div>
+
+        <!-- QR Code -->
+        <div class="pass-qr-box" id="passQrBox">
+          <!-- Populated instantly via in-browser QRCode generator -->
+        </div>
+
+        <!-- Ticket Details Table -->
+        <div class="pass-details-table">
+          <div class="pass-row">
+            <span class="pass-lbl">Attendee Name</span>
+            <span class="pass-val" id="attendeeName">—</span>
+          </div>
+          <div class="pass-row">
+            <span class="pass-lbl">Ticket Tier</span>
+            <span class="pass-val" id="ticketTier">—</span>
+          </div>
+          <div class="pass-row">
+            <span class="pass-lbl">Price Paid</span>
+            <span class="pass-val" id="ticketPrice">—</span>
+          </div>
+          <div class="pass-row">
+            <span class="pass-lbl">Payment Status</span>
+            <span class="pass-val" id="paymentStatus" style="color:#4ade80;">PAID IN FULL ✅</span>
+          </div>
+          <div class="pass-row">
+            <span class="pass-lbl">Payment Method</span>
+            <span class="pass-val" id="paymentMethod">—</span>
+          </div>
+          <div class="pass-row">
+            <span class="pass-lbl">Ticket ID</span>
+            <span class="pass-val code" id="ticketId">—</span>
+          </div>
+        </div>
+
+        <p style="font-size:0.75rem; color:var(--silver-500); line-height:1.4;">
+          Show this QR code at the entrance on Friday, Jan 9th, 2026. Each QR code is uniquely encrypted and valid for single entry.
+        </p>
+      </div>
+
+      <div class="pass-tear-line">
+        <div class="pass-tear-line-dashed"></div>
+      </div>
+
+      <div class="pass-actions">
+        <button class="btn btn-download" onclick="downloadPass()">📥 Download Pass Image</button>
+        <button class="btn btn-email" id="resendReceiptBtn" onclick="resendReceipt()">📧 Send / Forward Receipt Email</button>
+        <a href="https://calendar.google.com/calendar/render?action=TEMPLATE&text=Banda+Night+2026+-+Sigma+Lambda+Beta&dates=20260110T040000Z/20260110T090000Z&details=Live+Banda+La+Tormentosa+and+Tacos+on+Sale.+In+honor+of+Brother+Hector+Hermes+Serrano.&location=Isla+Vista,+CA" target="_blank" class="btn btn-email">📅 Add to Google Calendar</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR Code Library -->
+  <script src="/qrcode.min.js"></script>
+  <script>
+    let currentTicket = null;
+
+    async function loadTicket() {
+      const params = new URLSearchParams(window.location.search);
+      const ticketId = params.get('id');
+
+      if (!ticketId) {
+        showError('No Ticket ID found in link. Please verify your receipt URL.');
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/ticket?id=${encodeURIComponent(ticketId)}`);
+        const data = await res.json();
+
+        if (data.success && data.ticket) {
+          renderPass(data.ticket);
+        } else {
+          showError(data.error || 'Ticket not found in event database.');
+        }
+      } catch (err) {
+        showError('Could not connect to event ticket server. Please reload.');
+      }
+    }
+
+    function renderPass(t) {
+      currentTicket = t;
+
+      document.getElementById('loadingBox').style.display = 'none';
+      document.getElementById('passCard').style.display = 'block';
+
+      document.getElementById('passTierTag').textContent = (t.tier || 'ADMISSION').toUpperCase();
+      document.getElementById('attendeeName').textContent = t.buyerName || 'Attendee';
+      document.getElementById('ticketTier').textContent = t.tier || 'Admission';
+      document.getElementById('ticketPrice').textContent = `$${t.price || 15}.00`;
+      document.getElementById('ticketId').textContent = t.ticketId;
+
+      const isVenmo = t.method === 'VENMO' || t.paymentMethod === 'venmo';
+      const statusEl = document.getElementById('paymentStatus');
+      const venmoAlert = document.getElementById('venmoAlert');
+
+      if (isVenmo && t.paymentStatus !== 'PAID') {
+        statusEl.textContent = 'VENMO PENDING ⏳';
+        statusEl.style.color = '#facc15';
+        document.getElementById('paymentMethod').textContent = `Venmo (@${t.venmoUsername || 'Betas_UCSB'})`;
+        
+        venmoAlert.style.display = 'block';
+        document.getElementById('venmoTarget').textContent = `@${t.venmoUsername || 'Betas_UCSB'}`;
+        document.getElementById('venmoNote').textContent = `Banda Night - ${t.ticketId}`;
+        document.getElementById('venmoPayBtn').href = `https://venmo.com/${t.venmoUsername || 'Betas_UCSB'}?txn=pay&amount=${t.price}&note=Banda%20Night%20-%20${t.ticketId}`;
+      } else {
+        venmoAlert.style.display = 'none';
+        if (t.paymentStatus === 'REFUNDED') {
+          statusEl.textContent = 'REFUNDED / VOID ⛔';
+          statusEl.style.color = '#ef4444';
+        } else {
+          statusEl.textContent = 'PAID IN FULL ✅';
+          statusEl.style.color = '#4ade80';
+        }
+        document.getElementById('paymentMethod').textContent = isVenmo ? 'Venmo (Confirmed)' : `${t.cardBrand || 'Card'} •••• ${t.cardLast4 || '4242'}`;
+      }
+
+      // Render QR Code
+      const qrPayload = JSON.stringify({
+        ticketId: t.ticketId,
+        event: 'Banda Night 2026 - Sigma Lambda Beta',
+        name: t.buyerName,
+        tier: t.tier,
+        price: t.price,
+        issued: t.purchasedAt,
+        token: t.securityToken,
+      });
+
+      const qrBox = document.getElementById('passQrBox');
+      qrBox.innerHTML = '';
+      let rendered = false;
+
+      if (typeof QRCode === 'function') {
+        try {
+          new QRCode(qrBox, {
+            text: qrPayload,
+            width: 220,
+            height: 220,
+            colorDark: '#0c0418',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.M,
+          });
+          rendered = true;
+        } catch (e) {}
+      }
+
+      if (!rendered || !qrBox.firstElementChild) {
+        const img = document.createElement('img');
+        img.src = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&margin=10&data=${encodeURIComponent(qrPayload)}`;
+        img.alt = `Ticket QR Code - ${t.ticketId}`;
+        qrBox.appendChild(img);
+      }
+    }
+
+    function showError(msg) {
+      document.getElementById('loadingBox').style.display = 'none';
+      document.getElementById('passCard').style.display = 'none';
+      document.getElementById('errorBox').style.display = 'block';
+      document.getElementById('errorMsg').textContent = msg;
+    }
+
+    function downloadPass() {
+      const qrBox = document.getElementById('passQrBox');
+      const ticketId = document.getElementById('ticketId')?.textContent || 'ticket';
+      let dataUrl = '';
+
+      if (qrBox) {
+        const img = qrBox.querySelector('img');
+        const canvas = qrBox.querySelector('canvas');
+        if (img && img.src && img.src.length > 50) {
+          dataUrl = img.src;
+        } else if (canvas) {
+          try {
+            dataUrl = canvas.toDataURL('image/png');
+          } catch (e) {}
+        }
+      }
+
+      if (dataUrl) {
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `Banda-Night-Pass-${ticketId}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } else {
+        alert('Ticket pass is displayed on screen. Take a screenshot for entry!');
+      }
+    }
+
+    async function resendReceipt() {
+      if (!currentTicket) return;
+      const targetEmail = prompt('Enter email address to send ticket receipt to:', currentTicket.buyerEmail || '');
+      if (!targetEmail || !targetEmail.includes('@')) return;
+
+      const btn = document.getElementById('resendReceiptBtn');
+      btn.disabled = true;
+      btn.textContent = '⏳ Sending Receipt...';
+
+      try {
+        const res = await fetch('/api/send-receipt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ticketId: currentTicket.ticketId, recipientEmail: targetEmail }),
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          alert(`✅ Receipt sent successfully to ${targetEmail}! Please check inbox or spam folder.`);
+        } else {
+          alert(data.error || 'Failed to send receipt. Please try again.');
+        }
+      } catch (err) {
+        alert('Error sending receipt. Please try again.');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '📧 Send / Forward Receipt Email';
+      }
+    }
+
+    loadTicket();
+  </script>
+</body>
+</html>

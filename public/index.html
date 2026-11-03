@@ -1331,6 +1331,7 @@
     .pass-actions {
       padding: 1.5rem 1.75rem;
       display: flex;
+      flex-wrap: wrap;
       gap: 0.85rem;
     }
     .pass-btn-download {
@@ -1930,6 +1931,12 @@
           </div>
         </div>
 
+        <!-- Email Confirmation Notice -->
+        <div id="passEmailNotice" style="background:rgba(168, 85, 247, 0.12); border:1px solid rgba(168, 85, 247, 0.35); border-radius:12px; padding:0.75rem 1rem; margin-bottom:1.25rem; font-size:0.82rem; color:#e9d5ff; text-align:left; line-height:1.45;">
+          📧 <strong>Receipt Emailed:</strong> Sent to <strong id="passBuyerEmail" style="color:#ffffff;">...</strong>.<br>
+          <span style="font-size:0.75rem; color:#c084fc;">Check your spam/junk folder if not in inbox within 2 minutes.</span>
+        </div>
+
         <p style="font-size:0.75rem; color:var(--silver-500);">
           Show this QR code at the entrance. Each QR code is uniquely encrypted and valid for single entry.
         </p>
@@ -1939,6 +1946,7 @@
 
       <div class="pass-actions">
         <button class="pass-btn-download" onclick="downloadPass()">📥 Download Pass</button>
+        <button class="pass-btn-download" style="background:rgba(255,255,255,0.08); border:1px solid rgba(168,85,247,0.4); color:#ffffff; box-shadow:none;" id="btnPassResendEmail" onclick="modalResendReceipt()">📧 Resend / Forward</button>
         <button class="pass-btn-close" onclick="closeTicketModal()">Close</button>
       </div>
 
@@ -2161,8 +2169,12 @@
     // ════════════════════════════════════════════════════════════════
     // SHARED QR TICKET PASS DISPLAY
     // ════════════════════════════════════════════════════════════════
+    let lastRenderedTicket = null;
+
     async function showDigitalPass(t, isVenmo, venmoHandle, deepLink) {
       try {
+        lastRenderedTicket = t;
+
         const passTagTier = document.getElementById('passTagTier');
         if (passTagTier) passTagTier.textContent = (t.tier || 'ADMISSION').toUpperCase();
         
@@ -2177,6 +2189,9 @@
         
         const ticketIdEl = document.getElementById('passTicketId');
         if (ticketIdEl) ticketIdEl.textContent = t.ticketId || 'SLB-TICKET';
+
+        const passBuyerEmail = document.getElementById('passBuyerEmail');
+        if (passBuyerEmail) passBuyerEmail.textContent = t.buyerEmail || 'your email';
 
         const venmoNotice = document.getElementById('passVenmoNotice');
         const passPaymentStatus = document.getElementById('passPaymentStatus');
@@ -2464,6 +2479,39 @@
         document.body.removeChild(a);
       } else {
         alert('Your ticket pass is shown on screen! Please take a screenshot for event check-in.');
+      }
+    }
+
+    async function modalResendReceipt() {
+      if (!lastRenderedTicket) return;
+      const target = prompt('Send or forward receipt to email address:', lastRenderedTicket.buyerEmail || '');
+      if (!target || !target.includes('@')) return;
+
+      const btn = document.getElementById('btnPassResendEmail');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ Sending...';
+      }
+
+      try {
+        const res = await fetch('/api/send-receipt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ticketId: lastRenderedTicket.ticketId, recipientEmail: target }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert(`✅ Ticket receipt successfully sent to ${target}! Please check your inbox or spam folder.`);
+        } else {
+          alert(data.error || 'Could not send receipt.');
+        }
+      } catch (e) {
+        alert('Network error sending receipt.');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '📧 Resend / Forward';
+        }
       }
     }
 

@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const querystring = require('querystring');
+const { sendTicketReceipt, sendTestEmail } = require('./email');
 
 const PORT = process.env.PORT || 3000;
 const DB_PATH = path.join(__dirname, 'tickets.json');
@@ -12,7 +13,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 // --- STRIPE CONFIGURATION ---
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
 const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY || '';
-const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
+const BASE_URL = process.env.BASE_URL || process.env.RENDER_EXTERNAL_URL || 'https://banda-night-2026-1.onrender.com';
 
 // --- VENMO CONFIGURATION ---
 // Default Venmo username if not set in config
@@ -233,10 +234,33 @@ const server = http.createServer(async (req, res) => {
       checkedInAt: null,
       paymentStatus: method === 'venmo' ? 'VENMO_PENDING' : 'PAID',
       method: method.toUpperCase(),
+      emailStatus: 'SENDING',
+      emailSentAt: null,
+      emailError: null,
     };
 
     db.tickets.push(ticket);
     saveDB(db);
+
+    // Asynchronously dispatch email receipt to attendee
+    const emailConfig = db.config?.email || {};
+    sendTicketReceipt(ticket, {
+      ...emailConfig,
+      venmoUsername: db.config?.venmoUsername || VENMO_USERNAME,
+    }, BASE_URL)
+      .then(result => {
+        ticket.emailStatus = result.simulated ? 'SIMULATED' : 'SENT';
+        ticket.emailSentAt = new Date().toISOString();
+        ticket.emailProvider = result.provider || 'simulated';
+        saveDB(db);
+        console.log(`[RECEIPT] Email dispatched to ${ticket.buyerEmail} for ticket ${ticket.ticketId}`);
+      })
+      .catch(emailErr => {
+        console.error(`[RECEIPT ERROR] Failed to send email to ${ticket.buyerEmail}:`, emailErr.message);
+        ticket.emailStatus = 'FAILED';
+        ticket.emailError = emailErr.message;
+        saveDB(db);
+      });
 
     const venmoUser = db.config?.venmoUsername || VENMO_USERNAME;
     const venmoNote = `Banda Night - ${ticket.ticketId} - ${ticket.buyerName}`;
@@ -353,13 +377,23 @@ const server = http.createServer(async (req, res) => {
     }));
   }
 
-  // --- API: Admin Venmo Config ---
+  // --- API: Admin Venmo & Email Config ---
   if (pathname === '/api/admin/config' && req.method === 'GET') {
     const db = loadDB();
     const venmoUser = db.config?.venmoUsername || VENMO_USERNAME;
+    const emailConfig = db.config?.email || {};
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({
       venmoUsername: venmoUser,
+      email: {
+        provider: emailConfig.provider || (emailConfig.resendApiKey ? 'resend' : (emailConfig.smtpHost ? 'smtp' : 'simulated')),
+        resendApiKey: emailConfig.resendApiKey ? '••••••••' + emailConfig.resendApiKey.slice(-4) : '',
+        smtpHost: emailConfig.smtpHost || '',
+        smtpPort: emailConfig.smtpPort || 465,
+        smtpUser: emailConfig.smtpUser || '',
+        hasSmtpPass: Boolean(emailConfig.smtpPass),
+        fromEmail: emailConfig.fromEmail || '',
+      },
     }));
   }
 
@@ -372,11 +406,149 @@ const server = http.createServer(async (req, res) => {
       db.config.venmoUsername = clean;
       VENMO_USERNAME = clean;
     }
+    if (body.email && typeof body.email === 'object') {
+      if (!db.config.email) db.config.email = {};
+      if (body.email.provider) db.config.email.provider = body.email.provider;
+      if (body.email.resendApiKey && !body.email.resendApiKey.includes('••••')) {
+        db.config.email.resendApiKey = body.email.resendApiKey.trim();
+      }
+      if (body.email.smtpHost !== undefined) db.config.email.smtpHost = body.email.smtpHost.trim();
+      if (body.email.smtpPort !== undefined) db.config.email.smtpPort = parseInt(body.email.smtpPort, 10) || 465;
+      if (body.email.smtpUser !== undefined) db.config.email.smtpUser = body.email.smtpUser.trim();
+      if (body.email.smtpPass && !body.email.smtpPass.includes('••••')) {
+        db.config.email.smtpPass = body.email.smtpPass.trim();
+      }
+      if (body.email.fromEmail !== undefined) db.config.email.fromEmail = body.email.fromEmail.trim();
+    }
     saveDB(db);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({
       success: true,
-      venmoUsername: db.config.venmoUsername,
+      config: db.config,
+    }));
+  }
+
+  // --- API: Admin Send Test Email ---
+  if (pathname === '/api/admin/test-email' && req.method === 'POST') {
+    const body = await parseBody(req);
+    const { toEmail } = body;
+    if (!toEmail || !toEmail.includes('@')) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Valid email address required.' }));
+    }
+
+    const db = loadDB();
+    const emailConfig = db.config?.email || {};
+
+    try {
+      const result = await sendTestEmail(toEmail.trim(), {
+        ...emailConfig,
+        venmoUsername: db.config?.venmoUsername || VENMO_USERNAME,
+      }, BASE_URL);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({
+        success: true,
+        message: result.simulated
+          ? `Test receipt logged to console (Simulation mode). Set Resend key or Gmail credentials to deliver to live inboxes.`
+          : `Live test receipt sent to ${toEmail} via ${result.provider}!`,
+        result,
+      }));
+    } catch (err) {
+      console.error('[TEST EMAIL ERROR]', err);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: err.message || 'Failed to send test email.' }));
+    }
+  }
+
+  // --- API: Resend / Forward Receipt Email ---
+  if (pathname === '/api/send-receipt' && req.method === 'POST') {
+    const body = await parseBody(req);
+    const { ticketId, recipientEmail } = body;
+
+    if (!ticketId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Ticket ID required.' }));
+    }
+
+    const db = loadDB();
+    const ticket = db.tickets.find(t => t.ticketId === ticketId);
+
+    if (!ticket) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Ticket not found.' }));
+    }
+
+    const dispatchTicket = {
+      ...ticket,
+      buyerEmail: (recipientEmail && recipientEmail.includes('@')) ? recipientEmail.trim().toLowerCase() : ticket.buyerEmail,
+    };
+
+    try {
+      const emailConfig = db.config?.email || {};
+      const result = await sendTicketReceipt(dispatchTicket, {
+        ...emailConfig,
+        venmoUsername: db.config?.venmoUsername || VENMO_USERNAME,
+      }, BASE_URL);
+
+      ticket.emailStatus = result.simulated ? 'SIMULATED' : 'SENT';
+      ticket.emailSentAt = new Date().toISOString();
+      ticket.emailProvider = result.provider || 'simulated';
+      ticket.emailError = null;
+      saveDB(db);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({
+        success: true,
+        message: `Receipt dispatched to ${dispatchTicket.buyerEmail}`,
+        provider: result.provider || 'simulated',
+      }));
+    } catch (err) {
+      console.error('[RESEND RECEIPT ERROR]', err);
+      ticket.emailStatus = 'FAILED';
+      ticket.emailError = err.message;
+      saveDB(db);
+
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: err.message || 'Could not send receipt email.' }));
+    }
+  }
+
+  // --- API: Public Ticket View for Mobile Pass ---
+  if (pathname === '/api/ticket' && req.method === 'GET') {
+    const ticketId = url.searchParams.get('id');
+    if (!ticketId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Ticket ID required' }));
+    }
+
+    const db = loadDB();
+    const ticket = db.tickets.find(t => t.ticketId === ticketId);
+
+    if (!ticket) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Ticket not found.' }));
+    }
+
+    // Return safe attendee ticket pass data
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({
+      success: true,
+      ticket: {
+        ticketId: ticket.ticketId,
+        securityToken: ticket.securityToken,
+        buyerName: ticket.buyerName,
+        buyerEmail: ticket.buyerEmail,
+        tier: ticket.tier,
+        price: ticket.price,
+        method: ticket.method,
+        paymentStatus: ticket.paymentStatus,
+        cardBrand: ticket.cardBrand || 'Card',
+        cardLast4: ticket.cardLast4 || '4242',
+        purchasedAt: ticket.purchasedAt,
+        checkedIn: Boolean(ticket.checkedIn),
+        venmoUsername: db.config?.venmoUsername || VENMO_USERNAME,
+      },
     }));
   }
 

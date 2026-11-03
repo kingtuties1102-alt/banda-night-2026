@@ -318,6 +318,102 @@
       color: white;
     }
 
+    .btn-resend-email {
+      padding: 0.25rem 0.55rem;
+      background: rgba(168, 85, 247, 0.15);
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      color: #e9d5ff;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-left: 0.35rem;
+      transition: all 0.2s;
+    }
+    .btn-resend-email:hover {
+      background: #a855f7;
+      color: white;
+    }
+    .btn-view-pass {
+      padding: 0.25rem 0.55rem;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-decoration: none;
+      margin-left: 0.35rem;
+      display: inline-block;
+      transition: all 0.2s;
+    }
+    .btn-view-pass:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Email Settings Card */
+    .email-settings-box {
+      background: rgba(18, 7, 36, 0.85);
+      border: 1px solid rgba(168, 85, 247, 0.35);
+      border-radius: 16px;
+      padding: 1.5rem 1.75rem;
+      margin-bottom: 2.25rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(168, 85, 247, 0.15);
+    }
+    .email-provider-tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin: 1rem 0;
+      flex-wrap: wrap;
+    }
+    .provider-tab-btn {
+      padding: 0.5rem 1rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      color: #cbd5e1;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .provider-tab-btn.active {
+      background: linear-gradient(135deg, #7e22ce 0%, #a855f7 100%);
+      color: white;
+      border-color: #c084fc;
+    }
+    .email-field-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .email-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      text-align: left;
+    }
+    .email-field label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #c084fc;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .email-field input {
+      padding: 0.65rem 0.85rem;
+      background: rgba(8, 2, 18, 0.85);
+      border: 1px solid rgba(168, 85, 247, 0.35);
+      border-radius: 8px;
+      color: white;
+      font-size: 0.88rem;
+      outline: none;
+    }
+    .email-field input:focus {
+      border-color: #c084fc;
+      box-shadow: 0 0 10px rgba(192, 132, 252, 0.25);
+    }
+
     @media (max-width: 1024px) {
       .stats-grid { grid-template-columns: repeat(3, 1fr); }
     }
@@ -383,6 +479,78 @@
     </div>
   </div>
 
+  <!-- Email Receipt Dispatcher & Settings Box -->
+  <div class="email-settings-box">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+      <div>
+        <h3 style="font-size:1.15rem; color:#e879f9; font-family:'Cinzel',serif; margin-bottom:0.3rem;">
+          📧 Automatic Email Receipt System
+        </h3>
+        <p style="font-size:0.83rem; color:#94a3b8; max-width:640px; line-height:1.45;">
+          Every ticket purchaser is automatically emailed their official receipt with an embedded encrypted QR code and a direct link to their digital pass.
+        </p>
+      </div>
+      <div>
+        <span id="emailActiveBadge" class="badge badge-paid">Checking provider...</span>
+      </div>
+    </div>
+
+    <!-- Provider Selection -->
+    <div class="email-provider-tabs">
+      <button class="provider-tab-btn active" id="tabResend" onclick="setProviderTab('resend')">⚡ Resend API (Recommended)</button>
+      <button class="provider-tab-btn" id="tabSmtp" onclick="setProviderTab('smtp')">✉️ Gmail / Custom SMTP</button>
+    </div>
+
+    <!-- Resend Config -->
+    <div id="resendConfigSection">
+      <div class="email-field-row">
+        <div class="email-field" style="grid-column:span 2;">
+          <label>Resend API Key (re_...)</label>
+          <input type="password" id="resendApiKeyInput" placeholder="re_1234567890abcdef..." autocomplete="off">
+        </div>
+        <div class="email-field">
+          <label>Sender From Address</label>
+          <input type="text" id="resendFromInput" placeholder="Sigma Lambda Beta <onboarding@resend.dev>">
+        </div>
+      </div>
+    </div>
+
+    <!-- SMTP Config -->
+    <div id="smtpConfigSection" style="display:none;">
+      <div class="email-field-row">
+        <div class="email-field">
+          <label>SMTP Host</label>
+          <input type="text" id="smtpHostInput" placeholder="smtp.gmail.com">
+        </div>
+        <div class="email-field">
+          <label>Port</label>
+          <input type="number" id="smtpPortInput" placeholder="465">
+        </div>
+        <div class="email-field">
+          <label>Username / Email</label>
+          <input type="text" id="smtpUserInput" placeholder="betas.ucsb@gmail.com">
+        </div>
+        <div class="email-field">
+          <label>App Password (16-char)</label>
+          <input type="password" id="smtpPassInput" placeholder="abcd efgh ijkl mnop">
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin-top:1.25rem; padding-top:1rem; border-top:1px solid rgba(168,85,247,0.15);">
+      <div style="display:flex; gap:0.5rem; align-items:center;">
+        <button class="btn-venmo-save" onclick="saveEmailConfig()" style="background:linear-gradient(135deg, #9333ea, #c026d3);">💾 Save Email Settings</button>
+        <span id="emailSaveStatus" class="save-status"></span>
+      </div>
+
+      <div style="display:flex; gap:0.5rem; align-items:center;">
+        <input type="email" id="testEmailInput" placeholder="your-email@ucsb.edu" style="padding:0.65rem 0.85rem; background:rgba(8,2,18,0.85); border:1px solid rgba(168,85,247,0.4); border-radius:8px; color:white; font-size:0.85rem; outline:none; width:210px;">
+        <button class="btn-action" onclick="sendAdminTestEmail()" id="btnTestEmail" style="padding:0.65rem 1rem;">🧪 Send Test Receipt</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Table Controls -->
   <div class="controls-bar">
     <input type="text" class="search-input" id="searchInput" placeholder="Search by name, email, or ticket ID..." oninput="filterTickets()">
@@ -404,19 +572,29 @@
           <th>Price</th>
           <th>Payment Method</th>
           <th>Payment Status</th>
+          <th>Receipt Email</th>
           <th>Ticket ID</th>
           <th>Purchased At</th>
           <th>Door Status</th>
         </tr>
       </thead>
       <tbody id="ticketTbody">
-        <tr><td colspan="10" style="text-align:center; padding:2rem; color:#94a3b8;">Loading attendees...</td></tr>
+        <tr><td colspan="11" style="text-align:center; padding:2rem; color:#94a3b8;">Loading attendees...</td></tr>
       </tbody>
     </table>
   </div>
 
   <script>
     let allTickets = [];
+    let currentEmailProvider = 'resend';
+
+    function setProviderTab(provider) {
+      currentEmailProvider = provider;
+      document.getElementById('tabResend').classList.toggle('active', provider === 'resend');
+      document.getElementById('tabSmtp').classList.toggle('active', provider === 'smtp');
+      document.getElementById('resendConfigSection').style.display = provider === 'resend' ? 'block' : 'none';
+      document.getElementById('smtpConfigSection').style.display = provider === 'smtp' ? 'block' : 'none';
+    }
 
     async function fetchDashboardData() {
       try {
@@ -445,6 +623,52 @@
         const vInput = document.getElementById('adminVenmoInput');
         if (document.activeElement !== vInput && data.venmoUsername) {
           vInput.value = data.venmoUsername === 'YOUR-VENMO-USERNAME' ? '' : data.venmoUsername;
+        }
+
+        // Fetch config details for email settings
+        try {
+          const cfgRes = await fetch('/api/admin/config');
+          const cfgData = await cfgRes.json();
+          if (cfgData.email) {
+            const em = cfgData.email;
+            const badge = document.getElementById('emailActiveBadge');
+            
+            if (em.resendApiKey) {
+              badge.textContent = '🟢 Resend API Active';
+              badge.className = 'badge badge-paid';
+            } else if (em.smtpHost) {
+              badge.textContent = `🟢 SMTP Active (${em.smtpHost})`;
+              badge.className = 'badge badge-paid';
+            } else {
+              badge.textContent = '🟡 Simulation Mode (Logs Only)';
+              badge.className = 'badge badge-venmo-pending';
+            }
+
+            if (document.activeElement !== document.getElementById('resendApiKeyInput') && em.resendApiKey) {
+              document.getElementById('resendApiKeyInput').value = em.resendApiKey;
+            }
+            if (document.activeElement !== document.getElementById('smtpHostInput') && em.smtpHost) {
+              document.getElementById('smtpHostInput').value = em.smtpHost;
+            }
+            if (document.activeElement !== document.getElementById('smtpPortInput') && em.smtpPort) {
+              document.getElementById('smtpPortInput').value = em.smtpPort;
+            }
+            if (document.activeElement !== document.getElementById('smtpUserInput') && em.smtpUser) {
+              document.getElementById('smtpUserInput').value = em.smtpUser;
+            }
+            if (document.activeElement !== document.getElementById('smtpPassInput') && em.hasSmtpPass) {
+              document.getElementById('smtpPassInput').value = '••••••••';
+            }
+            if (document.activeElement !== document.getElementById('resendFromInput') && em.fromEmail) {
+              document.getElementById('resendFromInput').value = em.fromEmail;
+            }
+
+            if (em.provider) {
+              setProviderTab(em.provider);
+            }
+          }
+        } catch (cfgErr) {
+          console.error('Error fetching email config:', cfgErr);
         }
 
         renderTable(allTickets);
@@ -484,6 +708,98 @@
       } catch (e) {
         statusEl.textContent = '❌ Connection error';
         statusEl.style.color = '#f87171';
+      }
+    }
+
+    async function saveEmailConfig() {
+      const statusEl = document.getElementById('emailSaveStatus');
+      statusEl.textContent = 'Saving email settings...';
+      statusEl.style.color = '#94a3b8';
+
+      const emailPayload = {
+        provider: currentEmailProvider,
+        resendApiKey: document.getElementById('resendApiKeyInput').value.trim(),
+        fromEmail: document.getElementById('resendFromInput').value.trim(),
+        smtpHost: document.getElementById('smtpHostInput').value.trim(),
+        smtpPort: document.getElementById('smtpPortInput').value.trim(),
+        smtpUser: document.getElementById('smtpUserInput').value.trim(),
+        smtpPass: document.getElementById('smtpPassInput').value.trim(),
+      };
+
+      try {
+        const res = await fetch('/api/admin/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: emailPayload }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          statusEl.textContent = '✅ Email settings saved!';
+          statusEl.style.color = '#4ade80';
+          setTimeout(() => { statusEl.textContent = ''; }, 4000);
+          fetchDashboardData();
+        } else {
+          statusEl.textContent = '❌ Failed to save';
+          statusEl.style.color = '#f87171';
+        }
+      } catch (e) {
+        statusEl.textContent = '❌ Error saving settings';
+        statusEl.style.color = '#f87171';
+      }
+    }
+
+    async function sendAdminTestEmail() {
+      const toEmail = document.getElementById('testEmailInput').value.trim();
+      const btn = document.getElementById('btnTestEmail');
+
+      if (!toEmail || !toEmail.includes('@')) {
+        alert('Please enter a valid recipient email address for testing.');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = '⏳ Sending...';
+
+      try {
+        const res = await fetch('/api/admin/test-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ toEmail }),
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          alert(`✅ ${data.message}`);
+        } else {
+          alert(`❌ ${data.error || 'Failed to send test email.'}`);
+        }
+      } catch (e) {
+        alert('Connection error sending test email.');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🧪 Send Test Receipt';
+      }
+    }
+
+    async function adminResendEmail(ticketId, buyerEmail) {
+      const target = prompt(`Send official ticket receipt to:`, buyerEmail);
+      if (!target || !target.includes('@')) return;
+
+      try {
+        const res = await fetch('/api/send-receipt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ticketId, recipientEmail: target }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert(`✅ Ticket receipt successfully sent to ${target}!`);
+          fetchDashboardData();
+        } else {
+          alert(`❌ ${data.error || 'Could not send receipt'}`);
+        }
+      } catch (e) {
+        alert('Connection error sending receipt.');
       }
     }
 
@@ -531,7 +847,7 @@
     function renderTable(tickets) {
       const tbody = document.getElementById('ticketTbody');
       if (!tickets.length) {
-        tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:2.5rem; color:#94a3b8;">No tickets sold yet.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:2.5rem; color:#94a3b8;">No tickets sold yet.</td></tr>`;
         return;
       }
 
@@ -569,6 +885,22 @@
           doorStatusHtml = `<span class="badge badge-wait">⏳ WAITING</span>`;
         }
 
+        // Email status badge & actions
+        let emailHtml = '';
+        if (t.emailStatus === 'SENT') {
+          emailHtml = `<span class="badge badge-in" title="Sent ${t.emailSentAt ? new Date(t.emailSentAt).toLocaleTimeString() : ''}">📧 Sent</span>`;
+        } else if (t.emailStatus === 'SIMULATED') {
+          emailHtml = `<span class="badge badge-wait" title="Recorded in simulation mode">📧 Simulated</span>`;
+        } else if (t.emailStatus === 'FAILED') {
+          emailHtml = `<span class="badge badge-refunded" title="${t.emailError || 'Failed to send'}">❌ Failed</span>`;
+        } else {
+          emailHtml = `<span class="badge badge-wait">⏳ Queued</span>`;
+        }
+        emailHtml += `
+          <button class="btn-resend-email" onclick="adminResendEmail('${t.ticketId}', '${t.buyerEmail}')" title="Send email receipt">📧 Resend</button>
+          <a href="/ticket.html?id=${t.ticketId}" target="_blank" class="btn-view-pass" title="View attendee pass">🎟️ Pass</a>
+        `;
+
         return `
         <tr style="${isRefunded ? 'opacity: 0.6; text-decoration: line-through;' : ''}">
           <td style="color:#94a3b8;">${tickets.length - idx}</td>
@@ -578,6 +910,7 @@
           <td style="font-weight:700; color:#facc15;">$${t.price}</td>
           <td>${methodBadge}</td>
           <td style="text-decoration:none;">${statusHtml}</td>
+          <td style="text-decoration:none; white-space:nowrap;">${emailHtml}</td>
           <td style="font-family:monospace; color:#c084fc;">${t.ticketId}</td>
           <td style="font-size:0.8rem; color:#94a3b8;">${new Date(t.purchasedAt).toLocaleString()}</td>
           <td style="text-decoration:none;">${doorStatusHtml}</td>
@@ -597,9 +930,9 @@
 
     function exportCSV() {
       if (!allTickets.length) return alert('No tickets to export.');
-      let csv = 'Ticket ID,Name,Email,Tier,Price,Method,Payment Status,Card Info,Purchased At,Checked In,Checked In Time\n';
+      let csv = 'Ticket ID,Name,Email,Tier,Price,Method,Payment Status,Email Status,Card Info,Purchased At,Checked In,Checked In Time\n';
       allTickets.forEach(t => {
-        csv += `"${t.ticketId}","${t.buyerName}","${t.buyerEmail}","${t.tier}",${t.price},"${t.method || 'CARD'}","${t.paymentStatus || 'PAID'}","${t.cardBrand || ''} ${t.cardLast4 || ''}","${t.purchasedAt}",${t.checkedIn ? 'YES' : 'NO'},"${t.checkedInAt || ''}"\n`;
+        csv += `"${t.ticketId}","${t.buyerName}","${t.buyerEmail}","${t.tier}",${t.price},"${t.method || 'CARD'}","${t.paymentStatus || 'PAID'}","${t.emailStatus || 'UNKNOWN'}","${t.cardBrand || ''} ${t.cardLast4 || ''}","${t.purchasedAt}",${t.checkedIn ? 'YES' : 'NO'},"${t.checkedInAt || ''}"\n`;
       });
       const blob = new Blob([csv], { type: 'text/csv' });
       const url = URL.createObjectURL(blob);
