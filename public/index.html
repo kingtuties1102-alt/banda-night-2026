@@ -1018,6 +1018,29 @@
       border-color: var(--purple-glow);
       box-shadow: var(--neon-shadow);
     }
+    .featured-tribute-card {
+      border: 2px solid rgba(217, 70, 239, 0.5) !important;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.8), 0 0 35px rgba(168, 85, 247, 0.35) !important;
+    }
+    .flyer-badge-overlay {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(12, 3, 24, 0.9);
+      border: 1px solid rgba(250, 204, 21, 0.6);
+      color: #facc15;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 0.4rem 1.1rem;
+      border-radius: 999px;
+      white-space: nowrap;
+      pointer-events: none;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.7);
+    }
     .scholarship-flyer-card img {
       width: 100%;
       height: auto;
@@ -1677,26 +1700,6 @@
         </div>
       </div>
 
-      <!-- 🌮 TACO ADD-ON -->
-      <div style="background:linear-gradient(135deg, rgba(251,191,36,0.08) 0%, rgba(168,85,247,0.08) 100%); border:1px solid rgba(251,191,36,0.35); border-radius:16px; padding:1.1rem 1.25rem; margin-bottom:1.25rem;">
-        <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.65rem;">
-          <span style="font-size:1.5rem;">🌮</span>
-          <div>
-            <div style="font-weight:800; color:#facc15; font-size:0.95rem;">Add Tacos to Your Order!</div>
-            <div style="font-size:0.78rem; color:#94a3b8; line-height:1.3;">Authentic tacos ready at the event · <strong style="color:#fbbf24;">$3 each</strong></div>
-          </div>
-        </div>
-        <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
-          <label style="font-size:0.82rem; color:#cbd5e1; font-weight:600;">How many tacos?</label>
-          <div style="display:flex; align-items:center; gap:0; background:rgba(8,2,18,0.7); border:1px solid rgba(251,191,36,0.4); border-radius:10px; overflow:hidden;">
-            <button type="button" onclick="changeTacoQty(-1)" style="background:none; border:none; color:#fbbf24; font-size:1.3rem; width:36px; height:36px; cursor:pointer; font-weight:800; line-height:1;">−</button>
-            <input type="number" id="tacoQty" value="0" min="0" max="10" readonly style="width:40px; text-align:center; background:none; border:none; color:#ffffff; font-size:1rem; font-weight:700; outline:none; padding:0;">
-            <button type="button" onclick="changeTacoQty(1)" style="background:none; border:none; color:#fbbf24; font-size:1.3rem; width:36px; height:36px; cursor:pointer; font-weight:800; line-height:1;">+</button>
-          </div>
-          <span id="tacoTotalDisplay" style="font-size:0.88rem; color:#4ade80; font-weight:700; display:none;">+$0 for tacos</span>
-        </div>
-      </div>
-
       <!-- VENMO PANEL -->
       <div id="venmoPanel" class="tab-panel active">
         <div class="venmo-instructions-card">
@@ -1799,8 +1802,12 @@
       
       <div class="scholarship-grid">
         
-        <!-- Left: Uploaded Scholarship Flyers -->
+        <!-- Left: Uploaded Scholarship Flyers & Memorial Tribute -->
         <div class="scholarship-flyers-wrap">
+          <div class="scholarship-flyer-card featured-tribute-card" onclick="openLightbox('/images/hector_tribute.jpg')" style="grid-column: 1 / -1;">
+            <img src="/images/hector_tribute.jpg" alt="In Loving Memory of Brother Hector 'Hermes' Serrano">
+            <div class="flyer-badge-overlay">✦ In Loving Memory · Brother Hector Serrano ✦</div>
+          </div>
           <div class="scholarship-flyer-card" onclick="openLightbox('/images/scholarship1.jpg')">
             <img src="/images/scholarship1.jpg" alt="Vamos a Volar Scholarship Tribute">
           </div>
@@ -1940,10 +1947,6 @@
           <div class="pass-row">
             <span class="pass-lbl">Amount</span>
             <span class="pass-val" id="passPricePaid">—</span>
-          </div>
-          <div class="pass-row" id="passTacoRow" style="display:none;">
-            <span class="pass-lbl">🌮 Tacos</span>
-            <span class="pass-val" id="passTacoInfo" style="color:#facc15;">—</span>
           </div>
           <div class="pass-row">
             <span class="pass-lbl">Payment Status</span>
@@ -2098,10 +2101,10 @@
 
         // Update checkout form tags
         document.getElementById('checkoutTierTag').textContent = `Purchasing: ${currentTier.name} ($${currentTier.price}.00)`;
+        document.getElementById('btnPayText').textContent = `Pay $${currentTier.price}.00 with Card · Get QR Ticket`;
+        document.getElementById('btnVenmoText').textContent = `Pay $${currentTier.price}.00 via Venmo & Get QR Pass`;
         const venmoHandle = data.venmoUsername || 'Betas_UCSB';
         document.getElementById('displayVenmoHandle').textContent = `@${venmoHandle}`;
-        // Update button totals (respects taco qty)
-        updateCheckoutTotals();
 
       } catch (err) {
         console.error('Error fetching tier status:', err);
@@ -2212,17 +2215,7 @@
         if (tierName) tierName.textContent = t.tier || 'Admission';
         
         const pricePaid = document.getElementById('passPricePaid');
-        if (pricePaid) pricePaid.textContent = `$${t.totalCharged || t.price || 15}.00`;
-
-        // Show taco info if ordered
-        const tacoRow = document.getElementById('passTacoRow');
-        const tacoInfo = document.getElementById('passTacoInfo');
-        if (t.tacosOrdered && t.tacosOrdered > 0 && tacoRow && tacoInfo) {
-          tacoRow.style.display = 'flex';
-          tacoInfo.textContent = `${t.tacosOrdered} taco${t.tacosOrdered > 1 ? 's' : ''} (+$${t.tacoTotal || (t.tacosOrdered * 3)})`;
-        } else if (tacoRow) {
-          tacoRow.style.display = 'none';
-        }
+        if (pricePaid) pricePaid.textContent = `$${t.price || 15}.00`;
         
         const ticketIdEl = document.getElementById('passTicketId');
         if (ticketIdEl) ticketIdEl.textContent = t.ticketId || 'SLB-TICKET';
@@ -2335,49 +2328,12 @@
     }
 
     // ════════════════════════════════════════════════════════════════
-    // TACO QUANTITY HELPER
-    // ════════════════════════════════════════════════════════════════
-    function changeTacoQty(delta) {
-      const input = document.getElementById('tacoQty');
-      const display = document.getElementById('tacoTotalDisplay');
-      if (!input) return;
-      let qty = parseInt(input.value, 10) || 0;
-      qty = Math.max(0, Math.min(10, qty + delta));
-      input.value = qty;
-      if (display) {
-        if (qty > 0) {
-          display.textContent = `+$${qty * 3} for tacos`;
-          display.style.display = 'inline';
-        } else {
-          display.style.display = 'none';
-        }
-      }
-      // Update button text to reflect total
-      updateCheckoutTotals();
-    }
-
-    function getTacoQty() {
-      return Math.max(0, Math.min(10, parseInt(document.getElementById('tacoQty')?.value || '0', 10)));
-    }
-
-    function updateCheckoutTotals() {
-      if (!currentTierData) return;
-      const basePrice = currentTierData.currentTier.price;
-      const tacos = getTacoQty();
-      const total = basePrice + tacos * 3;
-      const suffix = tacos > 0 ? ` + ${tacos} 🌮` : '';
-      document.getElementById('btnPayText').textContent = `Pay $${total}.00${suffix} with Card · Get QR Ticket`;
-      document.getElementById('btnVenmoText').textContent = `Pay $${total}.00${suffix} via Venmo & Get QR Pass`;
-    }
-
-    // ════════════════════════════════════════════════════════════════
     // VENMO CHECKOUT HANDLER
     // ════════════════════════════════════════════════════════════════
     async function handleVenmoCheckout() {
       const name = document.getElementById('attendeeName').value.trim();
       const email = document.getElementById('attendeeEmail').value.trim();
       const phone = document.getElementById('attendeePhone').value.trim();
-      const tacoQty = getTacoQty();
 
       if (!name) {
         alert('Please enter your full name.');
@@ -2404,7 +2360,6 @@
             email,
             phone,
             paymentMethod: 'venmo',
-            tacoQty,
           }),
         });
 
@@ -2415,10 +2370,8 @@
           document.getElementById('attendeeName').value = '';
           document.getElementById('attendeeEmail').value = '';
           document.getElementById('attendeePhone').value = '';
-          document.getElementById('tacoQty').value = '0';
-          document.getElementById('tacoTotalDisplay').style.display = 'none';
 
-          // Show QR Ticket modal — QR appears because payment was initiated
+          // Show QR Ticket modal immediately
           await showDigitalPass(data.ticket, true, data.venmoUsername || currentTierData?.venmoUsername || 'Betas_UCSB', data.venmoDeepLink);
 
           // Open Venmo app or web payment link in new window if possible
@@ -2437,7 +2390,11 @@
         alert(err.message || 'Payment processing error. Please try again.');
       } finally {
         venmoBtn.disabled = false;
-        updateCheckoutTotals();
+        if (currentTierData) {
+          venmoText.textContent = `Pay $${currentTierData.currentTier.price}.00 via Venmo & Get QR Pass`;
+        } else {
+          venmoText.textContent = 'Pay via Venmo & Get QR Pass';
+        }
       }
     }
 
@@ -2454,7 +2411,6 @@
       const cardExp = document.getElementById('cardExp').value;
       const cardCvc = document.getElementById('cardCvc').value;
       const zip = document.getElementById('cardZip').value;
-      const tacoQty = getTacoQty();
 
       if (!name) {
         alert('Please enter your full name.');
@@ -2492,7 +2448,6 @@
             cardExp,
             cardCvc,
             zip,
-            tacoQty,
           }),
         });
 
@@ -2506,8 +2461,6 @@
           document.getElementById('attendeeName').value = '';
           document.getElementById('attendeeEmail').value = '';
           document.getElementById('attendeePhone').value = '';
-          document.getElementById('tacoQty').value = '0';
-          document.getElementById('tacoTotalDisplay').style.display = 'none';
           document.getElementById('cardPaymentForm').reset();
           brandBadge.textContent = 'Card';
           brandBadge.style.color = 'var(--purple-400)';
@@ -2520,7 +2473,11 @@
       } finally {
         payBtn.disabled = false;
         payIcon.textContent = '🔒';
-        updateCheckoutTotals();
+        if (currentTierData) {
+          payText.textContent = `Pay $${currentTierData.currentTier.price}.00 with Card · Get QR Ticket`;
+        } else {
+          payText.textContent = 'Pay with Card · Get QR Ticket';
+        }
       }
     }
 
