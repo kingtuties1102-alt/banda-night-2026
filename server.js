@@ -216,6 +216,15 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ error: 'Please enter the 3 or 4 digit security code (CVC).' }));
       }
+
+      // Restrict test cards (4242... and 4000...) to authorized chapter admins only
+      if (rawCard.startsWith('42424242') || rawCard.startsWith('400000')) {
+        if (!checkAdminAuth(req)) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ error: 'Test cards are restricted to authorized chapter administrators.' }));
+        }
+      }
+
       cardBrand = detectCardBrand(rawCard);
       cardLast4 = rawCard.slice(-4);
     }

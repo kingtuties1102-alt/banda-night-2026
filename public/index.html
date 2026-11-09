@@ -1737,10 +1737,12 @@
 
       <!-- CARD PANEL -->
       <div id="cardPanel" class="tab-panel">
-        <div style="text-align: center;">
-          <span class="test-card-pill" onclick="autoFillTestCard()">
-            ⚡ Click to Auto-Fill Test Card (Instant Demo)
+        <!-- PRIVATE TEST DEMO (Hidden from public; visible only to authorized private users) -->
+        <div id="privateDemoContainer" style="display: none; text-align: center; margin-bottom: 1.15rem;">
+          <span class="test-card-pill" id="privateDemoPill" onclick="autoFillTestCard()" title="Private test demo (Chapter Authorized Only)">
+            ⚡ [Private Demo] Auto-Fill Test Card
           </span>
+          <span onclick="hidePrivateDemo()" style="color:#94a3b8; font-size:0.72rem; cursor:pointer; margin-left:0.5rem; text-decoration:underline;">(hide)</span>
         </div>
 
         <form id="cardPaymentForm" autocomplete="on" onsubmit="handleCardCheckout(event)">
@@ -1783,7 +1785,7 @@
           </button>
 
           <div class="security-badges">
-            <span>🔒 256-Bit SSL Encrypted</span>
+            <span onclick="registerSecretTap()" style="cursor:default;" title="">🔒 256-Bit SSL Encrypted</span>
             <span>💳 Visa · MC · Amex · Discover</span>
             <span>⚡ Instant Digital Ticket</span>
           </div>
@@ -2183,8 +2185,55 @@
       }
     });
 
-    // Quick auto-fill test card
+    // ════════════════════════════════════════════════════════════════
+    // PRIVATE TEST DEMO (Restricted Strictly to Authorized Users)
+    // ════════════════════════════════════════════════════════════════
+    async function verifyPinOnServer(pin) {
+      if (!pin) return false;
+      try {
+        const res = await fetch('/api/admin/verify-pin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin: pin.trim() }),
+        });
+        return res.ok;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function enablePrivateDemo() {
+      const container = document.getElementById('privateDemoContainer');
+      if (container) container.style.display = 'block';
+    }
+
+    function hidePrivateDemo() {
+      const container = document.getElementById('privateDemoContainer');
+      if (container) container.style.display = 'none';
+      sessionStorage.removeItem('slb_admin_pin');
+    }
+
+    async function promptPrivateAccess() {
+      const pin = prompt('🔐 Private Access: Enter Chapter Passcode to enable Demo Mode:');
+      if (!pin) return;
+      const ok = await verifyPinOnServer(pin);
+      if (ok) {
+        sessionStorage.setItem('slb_admin_pin', pin.trim());
+        enablePrivateDemo();
+        alert('✅ Private demo mode unlocked.');
+      } else {
+        alert('❌ Invalid passcode. Access denied.');
+      }
+    }
+
+    // Quick auto-fill test card (only callable if authorized)
     function autoFillTestCard() {
+      const pin = sessionStorage.getItem('slb_admin_pin');
+      const container = document.getElementById('privateDemoContainer');
+      if (!pin || !container || container.style.display === 'none') {
+        promptPrivateAccess();
+        return;
+      }
       document.getElementById('attendeeName').value = 'Alex Rodriguez';
       document.getElementById('attendeeEmail').value = 'alex.rodriguez@ucsb.edu';
       document.getElementById('attendeePhone').value = '(805) 893-8000';
@@ -2195,6 +2244,59 @@
       brandBadge.textContent = 'Visa';
       brandBadge.style.color = '#60a5fa';
     }
+
+    // Secret shortcut: Ctrl+Shift+D or Cmd+Shift+D triggers private access
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
+        e.preventDefault();
+        promptPrivateAccess();
+      }
+    });
+
+    // Secret touch trigger: tap security badge 5 times
+    let secretTapCount = 0;
+    let secretTapTimer = null;
+    function registerSecretTap() {
+      secretTapCount++;
+      clearTimeout(secretTapTimer);
+      if (secretTapCount >= 5) {
+        secretTapCount = 0;
+        promptPrivateAccess();
+      } else {
+        secretTapTimer = setTimeout(() => { secretTapCount = 0; }, 2000);
+      }
+    }
+
+    // Check on page load for authorized session or URL parameter
+    (async function initPrivateDemoCheck() {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlPin = urlParams.get('demo') || urlParams.get('test') || urlParams.get('admin');
+        if (urlPin) {
+          if (urlPin === '1' || urlPin === 'true') {
+            promptPrivateAccess();
+          } else {
+            const ok = await verifyPinOnServer(urlPin);
+            if (ok) {
+              sessionStorage.setItem('slb_admin_pin', urlPin);
+              enablePrivateDemo();
+              window.history.replaceState({}, document.title, window.location.pathname);
+              return;
+            }
+          }
+        }
+
+        const storedPin = sessionStorage.getItem('slb_admin_pin');
+        if (storedPin) {
+          const ok = await verifyPinOnServer(storedPin);
+          if (ok) {
+            enablePrivateDemo();
+          } else {
+            sessionStorage.removeItem('slb_admin_pin');
+          }
+        }
+      } catch (e) {}
+    })();
 
     // ════════════════════════════════════════════════════════════════
     // SHARED QR TICKET PASS DISPLAY
@@ -2401,9 +2503,13 @@
       venmoText.textContent = 'Preparing Venmo Link & Pass...';
 
       try {
+        const headers = { 'Content-Type': 'application/json' };
+        const adminPin = sessionStorage.getItem('slb_admin_pin');
+        if (adminPin) headers['x-admin-pin'] = adminPin;
+
         const res = await fetch('/api/purchase', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             name,
             email,
@@ -2485,9 +2591,13 @@
       payText.textContent = 'Authorizing Payment...';
 
       try {
+        const headers = { 'Content-Type': 'application/json' };
+        const adminPin = sessionStorage.getItem('slb_admin_pin');
+        if (adminPin) headers['x-admin-pin'] = adminPin;
+
         const res = await fetch('/api/purchase', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             name,
             email,
