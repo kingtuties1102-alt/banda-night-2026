@@ -1900,7 +1900,7 @@
   <!-- ════════════════════════════════════════════════════════════════
        DIGITAL TICKET PASS MODAL (With Unique QR Code)
        ════════════════════════════════════════════════════════════════ -->
-  <div class="modal-backdrop" id="ticketPassModal">
+  <div class="modal-backdrop" id="ticketPassModal" style="display: none;">
     <div class="pass-card">
       
       <div class="pass-header">
@@ -1968,7 +1968,7 @@
           <span style="font-size:0.75rem; color:#c084fc;">Check your spam/junk folder if not in inbox within 2 minutes.</span>
         </div>
 
-        <p style="font-size:0.75rem; color:var(--silver-500);">
+        <p id="passInstructionText" style="font-size:0.75rem; color:var(--silver-500);">
           Show this QR code at the entrance. Each QR code is uniquely encrypted and valid for single entry.
         </p>
       </div>
@@ -2200,10 +2200,12 @@
     // SHARED QR TICKET PASS DISPLAY
     // ════════════════════════════════════════════════════════════════
     let lastRenderedTicket = null;
+    let passPollingInterval = null;
 
     async function showDigitalPass(t, isVenmo, venmoHandle, deepLink) {
       try {
         lastRenderedTicket = t;
+        const isPaid = (t.paymentStatus === 'PAID') || (!isVenmo && Boolean(t.cardBrand || t.cardLast4));
 
         const passTagTier = document.getElementById('passTagTier');
         if (passTagTier) passTagTier.textContent = (t.tier || 'ADMISSION').toUpperCase();
@@ -2227,81 +2229,128 @@
         const passPaymentStatus = document.getElementById('passPaymentStatus');
         const passCardInfo = document.getElementById('passCardInfo');
         const passVenmoOpenBtn = document.getElementById('passVenmoOpenBtn');
+        const passInstructionText = document.getElementById('passInstructionText');
+        const qrBox = document.getElementById('passQrBox');
 
-        if (isVenmo) {
+        if (!isPaid) {
+          // ── PAYMENT NOT COMPLETE (VENMO PENDING) ──
+          // DO NOT SHOW QR CODE! Show locked pending pass state until payment is verified.
           if (venmoNotice) venmoNotice.style.display = 'block';
           const venmoTarget = document.getElementById('passVenmoTarget');
-          if (venmoTarget) venmoTarget.textContent = `@${venmoHandle}`;
+          if (venmoTarget) venmoTarget.textContent = `@${venmoHandle || 'Betas_UCSB'}`;
           const venmoRef = document.getElementById('passVenmoRef');
           if (venmoRef) venmoRef.textContent = `Banda Night - ${t.ticketId}`;
           if (passPaymentStatus) {
             passPaymentStatus.textContent = 'VENMO PENDING ⏳';
             passPaymentStatus.style.color = '#facc15';
           }
-          if (passCardInfo) passCardInfo.textContent = `Venmo (@${venmoHandle})`;
+          if (passCardInfo) passCardInfo.textContent = `Venmo (@${venmoHandle || 'Betas_UCSB'})`;
           if (passVenmoOpenBtn && deepLink) {
             passVenmoOpenBtn.href = deepLink;
           }
+
+          if (qrBox) {
+            qrBox.innerHTML = `
+              <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:1.25rem 0.75rem; width:100%; height:100%; box-sizing:border-box;">
+                <div style="font-size:2.8rem; margin-bottom:0.4rem; filter:drop-shadow(0 0 10px rgba(250,204,21,0.5));">🔒</div>
+                <div style="font-weight:800; font-size:0.95rem; color:#b45309; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:0.35rem;">
+                  QR Code Locked
+                </div>
+                <div style="font-size:0.75rem; color:#475569; font-weight:600; line-height:1.35; max-width:210px;">
+                  Payment Required · Complete your Venmo transfer of <strong>$${t.price || 15}.00</strong> to unlock your admission QR pass.
+                </div>
+              </div>
+            `;
+          }
+
+          if (passInstructionText) {
+            passInstructionText.innerHTML = '⚠️ <strong>QR Pass Locked:</strong> Your scannable admission QR code will automatically unlock once your Venmo payment is confirmed by chapter organizers.';
+            passInstructionText.style.color = '#fde047';
+          }
+
+          // Background poll every 4 seconds: if organizer confirms payment, instantly reveal QR code
+          if (passPollingInterval) clearInterval(passPollingInterval);
+          passPollingInterval = setInterval(async () => {
+            try {
+              const res = await fetch(`/api/ticket?id=${encodeURIComponent(t.ticketId)}`);
+              const checkData = await res.json();
+              if (checkData.success && checkData.ticket && checkData.ticket.paymentStatus === 'PAID') {
+                clearInterval(passPollingInterval);
+                passPollingInterval = null;
+                showDigitalPass(checkData.ticket, false, '', null);
+              }
+            } catch (pollErr) {}
+          }, 4000);
+
         } else {
+          // ── PAYMENT VERIFIED & COMPLETE (PAID) ──
+          if (passPollingInterval) {
+            clearInterval(passPollingInterval);
+            passPollingInterval = null;
+          }
+
           if (venmoNotice) venmoNotice.style.display = 'none';
           if (passPaymentStatus) {
             passPaymentStatus.textContent = 'PAID IN FULL ✅';
             passPaymentStatus.style.color = '#4ade80';
           }
-          if (passCardInfo) passCardInfo.textContent = `${t.cardBrand || 'Card'} •••• ${t.cardLast4 || '4242'}`;
-        }
-
-        // Build unique QR code admission payload
-        const qrPayload = JSON.stringify({
-          ticketId: t.ticketId,
-          event: 'Banda Night 2026 - Sigma Lambda Beta',
-          name: t.buyerName,
-          tier: t.tier,
-          price: t.price,
-          issued: t.purchasedAt,
-          token: t.securityToken,
-        });
-
-        // Render QR Code — single clean square box
-        const qrBox = document.getElementById('passQrBox');
-        if (qrBox) {
-          qrBox.innerHTML = '';
-
-          // Try local library first
-          let rendered = false;
-          if (typeof QRCode === 'function') {
-            try {
-              // Wrap in a fixed-size container to prevent double canvas+img
-              const qrWrap = document.createElement('div');
-              qrWrap.style.cssText = 'width:200px;height:200px;display:block;overflow:hidden;';
-              qrBox.appendChild(qrWrap);
-              new QRCode(qrWrap, {
-                text: qrPayload,
-                width: 200,
-                height: 200,
-                colorDark: '#0c0418',
-                colorLight: '#ffffff',
-                correctLevel: QRCode.CorrectLevel.M,
-              });
-              // Remove any duplicate img the library may add (keep only canvas or img, not both)
-              setTimeout(() => {
-                const canv = qrWrap.querySelector('canvas');
-                const img = qrWrap.querySelector('img');
-                if (canv && img) img.remove(); // remove duplicate
-              }, 100);
-              rendered = true;
-            } catch (err) {
-              console.warn('QRCode render error:', err);
-              qrBox.innerHTML = '';
-            }
+          if (passCardInfo) {
+            passCardInfo.textContent = isVenmo ? 'Venmo (Confirmed ✅)' : `${t.cardBrand || 'Card'} •••• ${t.cardLast4 || '4242'}`;
           }
 
-          if (!rendered) {
-            const fallbackImg = document.createElement('img');
-            fallbackImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=8&data=${encodeURIComponent(qrPayload)}`;
-            fallbackImg.alt = `Ticket QR Code - ${t.ticketId}`;
-            fallbackImg.style.cssText = 'width:200px;height:200px;display:block;margin:0 auto;';
-            qrBox.appendChild(fallbackImg);
+          if (passInstructionText) {
+            passInstructionText.innerHTML = 'Show this QR code at the entrance. Each QR code is uniquely encrypted and valid for single entry.';
+            passInstructionText.style.color = 'var(--silver-500)';
+          }
+
+          // Build unique QR code admission payload
+          const qrPayload = JSON.stringify({
+            ticketId: t.ticketId,
+            event: 'Banda Night 2026 - Sigma Lambda Beta',
+            name: t.buyerName,
+            tier: t.tier,
+            price: t.price,
+            issued: t.purchasedAt,
+            token: t.securityToken,
+          });
+
+          // Render QR Code — single clean square box (200x200)
+          if (qrBox) {
+            qrBox.innerHTML = '';
+
+            let rendered = false;
+            if (typeof QRCode === 'function') {
+              try {
+                const qrWrap = document.createElement('div');
+                qrWrap.style.cssText = 'width:200px;height:200px;display:block;overflow:hidden;';
+                qrBox.appendChild(qrWrap);
+                new QRCode(qrWrap, {
+                  text: qrPayload,
+                  width: 200,
+                  height: 200,
+                  colorDark: '#0c0418',
+                  colorLight: '#ffffff',
+                  correctLevel: QRCode.CorrectLevel.M,
+                });
+                setTimeout(() => {
+                  const canv = qrWrap.querySelector('canvas');
+                  const img = qrWrap.querySelector('img');
+                  if (canv && img) img.remove();
+                }, 100);
+                rendered = true;
+              } catch (err) {
+                console.warn('QRCode render error:', err);
+                qrBox.innerHTML = '';
+              }
+            }
+
+            if (!rendered) {
+              const fallbackImg = document.createElement('img');
+              fallbackImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=8&data=${encodeURIComponent(qrPayload)}`;
+              fallbackImg.alt = `Ticket QR Code - ${t.ticketId}`;
+              fallbackImg.style.cssText = 'width:200px;height:200px;display:block;margin:0 auto;';
+              qrBox.appendChild(fallbackImg);
+            }
           }
         }
 
@@ -2485,6 +2534,10 @@
     // TICKET PASS MODAL ACTIONS
     // ════════════════════════════════════════════════════════════════
     function closeTicketModal() {
+      if (passPollingInterval) {
+        clearInterval(passPollingInterval);
+        passPollingInterval = null;
+      }
       const modal = document.getElementById('ticketPassModal');
       if (modal) {
         modal.classList.remove('open');
@@ -2493,6 +2546,10 @@
     }
 
     function downloadPass() {
+      if (!lastRenderedTicket || lastRenderedTicket.paymentStatus !== 'PAID') {
+        alert('Your admission QR pass is currently locked pending payment confirmation. Complete your Venmo payment to unlock your QR code.');
+        return;
+      }
       const qrBox = document.getElementById('passQrBox');
       const ticketId = document.getElementById('passTicketId')?.textContent || 'ticket';
       let dataUrl = '';

@@ -338,12 +338,22 @@
           document.getElementById('resIcon').textContent = '⛔';
           document.getElementById('resMsg').textContent = 'TICKET VOID / REFUNDED';
           document.getElementById('resDetails').textContent = `${data.ticket?.buyerName || ''} · This ticket was CANCELLED or REFUNDED. Do not admit!`;
+        } else if (data.isPending) {
+          box.classList.add('invalid');
+          document.getElementById('resIcon').textContent = '⚠️';
+          document.getElementById('resMsg').textContent = 'UNPAID TICKET — VENMO PENDING';
+          document.getElementById('resDetails').innerHTML = `
+            <strong>${data.ticket?.buyerName || ''}</strong> · ${data.ticket?.tier || ''} ($${data.ticket?.price || 15}.00)<br>
+            Venmo transfer has NOT been verified yet.<br>
+            <button onclick="confirmVenmoAndAdmit('${data.ticket?.ticketId}')" style="margin-top:12px; background:#008cff; color:#fff; border:none; padding:10px 18px; border-radius:10px; font-weight:800; cursor:pointer; font-size:0.9rem; box-shadow:0 4px 15px rgba(0,140,255,0.4);">
+              ⚡ Attendee Paid on Phone — Confirm & Admit
+            </button>
+          `;
         } else if (data.valid) {
-          const isPending = data.ticket.paymentStatus === 'VENMO_PENDING';
-          box.classList.add(isPending ? 'already' : 'valid');
-          document.getElementById('resIcon').textContent = isPending ? '⚠️' : '✅';
-          document.getElementById('resMsg').textContent = isPending ? 'ADMIT — VENMO PAYMENT PENDING' : 'ADMISSION GRANTED!';
-          document.getElementById('resDetails').textContent = `${data.ticket.buyerName} · ${data.ticket.tier} (${data.ticket.ticketId}) — ${isPending ? 'Ask attendee to show completed Venmo payment transfer.' : 'Payment Confirmed'}`;
+          box.classList.add('valid');
+          document.getElementById('resIcon').textContent = '✅';
+          document.getElementById('resMsg').textContent = 'ADMISSION GRANTED!';
+          document.getElementById('resDetails').textContent = `${data.ticket.buyerName} · ${data.ticket.tier} (${data.ticket.ticketId}) — Payment Confirmed`;
         } else if (data.alreadyCheckedIn) {
           box.classList.add('already');
           document.getElementById('resIcon').textContent = '⚠️';
@@ -361,6 +371,30 @@
 
       } catch (err) {
         alert('Verification connection error.');
+      }
+    }
+
+    async function confirmVenmoAndAdmit(ticketId) {
+      const pin = getAdminPin();
+      try {
+        const res = await fetch('/api/checkin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-pin': pin },
+          body: JSON.stringify({ ticketId, confirmVenmo: true }),
+        });
+        const data = await res.json();
+        const box = document.getElementById('scanResult');
+        box.className = 'scan-result';
+        if (data.valid) {
+          box.classList.add('valid');
+          document.getElementById('resIcon').textContent = '✅';
+          document.getElementById('resMsg').textContent = 'VENMO CONFIRMED & ADMITTED!';
+          document.getElementById('resDetails').textContent = `${data.ticket.buyerName} · ${data.ticket.tier} (${data.ticket.ticketId}) — Welcome to Banda Night!`;
+        } else {
+          alert(data.message || 'Checkin error');
+        }
+      } catch (e) {
+        alert('Connection error');
       }
     }
 

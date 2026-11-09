@@ -397,6 +397,7 @@ async function sendEmail({ to, subject, html, text, config = {} }) {
  * Build rich HTML email template matching the Ultraviolet Nocturne event branding
  */
 function buildReceiptHtml(ticket, config = {}, baseUrl = 'https://banda-night-2026-1.onrender.com') {
+  const isPaid = ticket.paymentStatus === 'PAID';
   const isVenmo = ticket.method === 'VENMO' || ticket.paymentMethod === 'venmo';
   const venmoHandle = config.venmoUsername || 'Betas_UCSB';
   const ticketPassUrl = `${baseUrl}/ticket.html?id=${ticket.ticketId}`;
@@ -417,7 +418,7 @@ function buildReceiptHtml(ticket, config = {}, baseUrl = 'https://banda-night-20
     ? `<span style="display:inline-block; padding:4px 12px; border-radius:999px; background:rgba(250, 204, 21, 0.15); border:1px solid #facc15; color:#facc15; font-size:12px; font-weight:700;">VENMO PENDING ⏳</span>`
     : `<span style="display:inline-block; padding:4px 12px; border-radius:999px; background:rgba(74, 222, 128, 0.15); border:1px solid #4ade80; color:#4ade80; font-size:12px; font-weight:700;">PAID IN FULL ✅</span>`;
 
-  const venmoBoxHtml = isVenmo ? `
+  const venmoBoxHtml = (isVenmo && !isPaid) ? `
     <div style="background:rgba(0, 140, 255, 0.12); border:1px solid #38bdf8; border-radius:14px; padding:18px; margin:22px 0; text-align:left;">
       <div style="font-weight:700; color:#ffffff; font-size:14px; margin-bottom:8px;">
         📱 Venmo Payment Confirmation Required:
@@ -433,6 +434,33 @@ function buildReceiptHtml(ticket, config = {}, baseUrl = 'https://banda-night-20
       </div>
     </div>
   ` : '';
+
+  const qrSectionHtml = isPaid ? `
+    <!-- QR Code Card (Rendered Only Post-Payment) -->
+    <div style="background:#ffffff; border-radius:18px; padding:16px; display:inline-block; margin:10px auto 20px; box-shadow:0 10px 30px rgba(0,0,0,0.6);">
+      <img src="${qrImgUrl}" width="220" height="220" alt="Ticket QR Code" style="display:block; margin:0 auto; width:220px; height:220px;" />
+      <div style="color:#0f051d; font-family:monospace; font-weight:800; font-size:12px; margin-top:8px; letter-spacing:1px;">
+        ${ticket.ticketId}
+      </div>
+    </div>
+    <div style="font-size:13px; color:#c084fc; margin-bottom:20px;">
+      📱 Show this QR code at the entrance for fast door check-in.
+    </div>
+  ` : `
+    <!-- QR Code Locked Notice (Venmo Pending) -->
+    <div style="background:rgba(250, 204, 21, 0.08); border:2px dashed rgba(250, 204, 21, 0.45); border-radius:18px; padding:24px 20px; margin:10px auto 20px; max-width:320px;">
+      <div style="font-size:36px; margin-bottom:8px;">🔒</div>
+      <div style="color:#facc15; font-weight:800; font-size:15px; margin-bottom:6px; text-transform:uppercase; letter-spacing:1px;">
+        Admission QR Code Locked
+      </div>
+      <div style="font-size:13px; color:#cbd5e1; line-height:1.45;">
+        Complete your Venmo payment of <strong>$${ticket.price}.00</strong> below to unlock your admission pass. Once verified by organizers, your active QR code will unlock and a confirmation will be emailed.
+      </div>
+    </div>
+    <div style="font-size:13px; color:#facc15; margin-bottom:20px;">
+      ⏳ Payment pending confirmation. Complete Venmo transfer to activate pass.
+    </div>
+  `;
 
   return `
 <!DOCTYPE html>
@@ -475,17 +503,7 @@ function buildReceiptHtml(ticket, config = {}, baseUrl = 'https://banda-night-20
                 Hi <strong>${ticket.buyerName || 'Attendee'}</strong>, thank you for your support! Here is your official admission pass and receipt.
               </div>
 
-              <!-- QR Code Card -->
-              <div style="background:#ffffff; border-radius:18px; padding:16px; display:inline-block; margin:10px auto 20px; box-shadow:0 10px 30px rgba(0,0,0,0.6);">
-                <img src="${qrImgUrl}" width="220" height="220" alt="Ticket QR Code" style="display:block; margin:0 auto; width:220px; height:220px;" />
-                <div style="color:#0f051d; font-family:monospace; font-weight:800; font-size:12px; margin-top:8px; letter-spacing:1px;">
-                  ${ticket.ticketId}
-                </div>
-              </div>
-
-              <div style="font-size:13px; color:#c084fc; margin-bottom:20px;">
-                📱 Show this QR code at the entrance for fast door check-in.
-              </div>
+              ${qrSectionHtml}
 
               <!-- Button: View Pass Online -->
               <div style="margin:20px 0 25px;">
@@ -570,6 +588,7 @@ function buildReceiptHtml(ticket, config = {}, baseUrl = 'https://banda-night-20
  * Plain-text fallback for email clients that do not render HTML
  */
 function buildReceiptText(ticket, config = {}, baseUrl = 'https://banda-night-2026-1.onrender.com') {
+  const isPaid = ticket.paymentStatus === 'PAID';
   const isVenmo = ticket.method === 'VENMO' || ticket.paymentMethod === 'venmo';
   const venmoHandle = config.venmoUsername || 'Betas_UCSB';
   const ticketPassUrl = `${baseUrl}/ticket.html?id=${ticket.ticketId}`;
@@ -587,25 +606,25 @@ TICKET DETAILS:
 - Attendee: ${ticket.buyerName}
 - Ticket ID: ${ticket.ticketId}
 - Tier: ${ticket.tier}
-- Price Paid: $${ticket.price}.00
+- Price: $${ticket.price}.00
 - Payment Status: ${ticket.paymentStatus || 'PAID'}
 - Payment Method: ${ticket.method}
 
-${isVenmo ? `
-VENMO PAYMENT INSTRUCTIONS:
+${(isVenmo && !isPaid) ? `
+⚠️ ACTION REQUIRED — VENMO PAYMENT INSTRUCTIONS:
 Please send $${ticket.price}.00 to @${venmoHandle} on Venmo with note: Banda Night - ${ticket.ticketId}
+Your QR code admission pass will unlock automatically once verified by chapter organizers.
 ` : ''}
 
-VIEW YOUR DIGITAL PASS & QR CODE ONLINE:
+VIEW YOUR DIGITAL PASS ONLINE:
 ${ticketPassUrl}
 
 EVENT LOGISTICS:
 - Date: Friday, January 9th, 2026
 - Doors Open: 8:00 PM PST
 - Featuring: Live Banda "La Tormentosa"
-- Fresh Tacos on sale all night!
 - Requirements: Physical Gov/Student ID required for entry (18+ to enter, 21+ to drink).
-- Show your unique QR code at the door for entry.
+- ${isPaid ? 'Show your unique QR code at the door for entry.' : 'NOTE: Your entry QR code is currently locked pending Venmo payment verification.'}
 
 Proceeds honor Brother Hector "Hermes" Serrano through the Vamos a Volar Scholarship Fund.
 

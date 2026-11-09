@@ -303,7 +303,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     const body = await parseBody(req);
-    let { ticketId } = body;
+    let { ticketId, confirmVenmo } = body;
 
     if (!ticketId || typeof ticketId !== 'string') {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -340,6 +340,28 @@ const server = http.createServer(async (req, res) => {
         message: '⛔ TICKET VOID / REFUNDED — Do NOT allow entry!',
         ticket,
       }));
+    }
+
+    // Door check: Is ticket paid?
+    if (ticket.paymentStatus !== 'PAID') {
+      if (confirmVenmo && ticket.paymentStatus === 'VENMO_PENDING') {
+        // Door staff verified and confirmed payment on the spot
+        ticket.paymentStatus = 'PAID';
+        ticket.paidAt = new Date().toISOString();
+        const emailConfig = db.config?.email || {};
+        sendTicketReceipt(ticket, {
+          ...emailConfig,
+          venmoUsername: db.config?.venmoUsername || VENMO_USERNAME,
+        }, BASE_URL).catch(e => console.error('Venmo checkin email error:', e.message));
+      } else {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({
+          valid: false,
+          isPending: true,
+          message: '⚠️ UNPAID TICKET — Venmo payment is still pending! Verify transfer before admitting.',
+          ticket,
+        }));
+      }
     }
 
     if (ticket.checkedIn) {
@@ -617,10 +639,20 @@ const server = http.createServer(async (req, res) => {
     }
 
     ticket.paymentStatus = 'PAID';
+    ticket.paidAt = new Date().toISOString();
     saveDB(db);
 
+    // Automatically send receipt with activated QR code to attendee now that ticket is paid!
+    const emailConfig = db.config?.email || {};
+    sendTicketReceipt(ticket, {
+      ...emailConfig,
+      venmoUsername: db.config?.venmoUsername || VENMO_USERNAME,
+    }, BASE_URL)
+      .then(res => console.log(`[RECEIPT] Activated pass emailed to ${ticket.buyerEmail} on Venmo confirm.`))
+      .catch(e => console.error('[RECEIPT ERROR] Failed to send activated pass:', e.message));
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ success: true, ticketId }));
+    return res.end(JSON.stringify({ success: true, ticketId, ticket }));
   }
 
   // --- API: Admin refund / cancel ticket ---
