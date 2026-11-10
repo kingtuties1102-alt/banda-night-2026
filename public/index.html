@@ -1620,7 +1620,7 @@
           <span class="tier-price-num"><sup>$</sup>15</span>
         </div>
         <p class="tier-desc">First 100 tickets sold</p>
-        <span class="tier-status-pill" id="tierStatus-0">Selling Now · 100 Left</span>
+        <span class="tier-status-pill" id="tierStatus-0">Selling Now</span>
       </div>
 
       <!-- Tier 2: Standard -->
@@ -1649,7 +1649,7 @@
     <div class="tier-progress-card">
       <div class="progress-labels">
         <span>Current Tier: <strong id="progressTierName" style="color:var(--purple-glow);">Early Bird ($15)</strong></span>
-        <span><strong id="progressSoldNum">0</strong> Sold · <strong id="progressRemainingNum">100</strong> Left in Tier</span>
+        <span style="display:none;"><strong id="progressSoldNum">0</strong> Sold · <strong id="progressRemainingNum">100</strong> Left in Tier</span>
       </div>
       <div class="progress-bar-track">
         <div class="progress-bar-fill" id="progressBarFill" style="width: 0%;"></div>
@@ -2082,7 +2082,7 @@
             pill.textContent = 'SOLD OUT';
           } else if (i === tierIdx) {
             card.classList.add('active-tier');
-            pill.textContent = `Selling Now · ${data.remainingInTier} Left`;
+            pill.textContent = 'Selling Now';
           } else {
             card.classList.add('upcoming-tier');
             pill.textContent = 'Upcoming';
