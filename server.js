@@ -5,6 +5,12 @@ const path = require('path');
 const crypto = require('crypto');
 const querystring = require('querystring');
 const { sendTicketReceipt, sendTestEmail } = require('./email');
+const { sendSmsReceipt, sendTestSms } = require('./sms');
+
+// --- TWILIO CONFIGURATION (can also be set via admin dashboard) ---
+const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || '';
+const TWILIO_AUTH_TOKEN  = process.env.TWILIO_AUTH_TOKEN  || '';
+const TWILIO_FROM_NUMBER = process.env.TWILIO_FROM_NUMBER || '';
 
 const PORT = process.env.PORT || 3000;
 const DB_PATH = path.join(__dirname, 'tickets.json');
@@ -261,6 +267,13 @@ const server = http.createServer(async (req, res) => {
 
     // Asynchronously dispatch email receipt to attendee
     const emailConfig = db.config?.email || {};
+    const smsConfig = {
+      twilioAccountSid: db.config?.twilio?.accountSid || TWILIO_ACCOUNT_SID,
+      twilioAuthToken:  db.config?.twilio?.authToken  || TWILIO_AUTH_TOKEN,
+      twilioFromNumber: db.config?.twilio?.fromNumber || TWILIO_FROM_NUMBER,
+      venmoUsername: db.config?.venmoUsername || VENMO_USERNAME,
+    };
+
     sendTicketReceipt(ticket, {
       ...emailConfig,
       venmoUsername: db.config?.venmoUsername || VENMO_USERNAME,
@@ -276,6 +289,25 @@ const server = http.createServer(async (req, res) => {
         console.error(`[RECEIPT ERROR] Failed to send email to ${ticket.buyerEmail}:`, emailErr.message);
         ticket.emailStatus = 'FAILED';
         ticket.emailError = emailErr.message;
+        saveDB(db);
+      });
+
+    // Asynchronously dispatch SMS receipt to attendee (if phone provided + Twilio configured)
+    sendSmsReceipt(ticket, smsConfig, BASE_URL)
+      .then(result => {
+        if (!result.skipped) {
+          ticket.smsStatus = 'SENT';
+          ticket.smsSentAt = new Date().toISOString();
+          saveDB(db);
+          console.log(`[SMS] Text receipt sent to ${ticket.buyerPhone} for ticket ${ticket.ticketId}`);
+        } else {
+          console.log(`[SMS] Skipped for ${ticket.ticketId}: ${result.reason}`);
+        }
+      })
+      .catch(smsErr => {
+        console.error(`[SMS ERROR] Failed to send SMS to ${ticket.buyerPhone}:`, smsErr.message);
+        ticket.smsStatus = 'FAILED';
+        ticket.smsError = smsErr.message;
         saveDB(db);
       });
 
@@ -445,11 +477,12 @@ const server = http.createServer(async (req, res) => {
     }));
   }
 
-  // --- API: Admin Venmo & Email Config ---
+  // --- API: Admin Venmo, Email & SMS Config ---
   if (pathname === '/api/admin/config' && req.method === 'GET') {
     const db = loadDB();
     const venmoUser = db.config?.venmoUsername || VENMO_USERNAME;
     const emailConfig = db.config?.email || {};
+    const twilioConfig = db.config?.twilio || {};
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({
       venmoUsername: venmoUser,
@@ -462,6 +495,12 @@ const server = http.createServer(async (req, res) => {
         smtpUser: emailConfig.smtpUser || '',
         hasSmtpPass: Boolean(emailConfig.smtpPass),
         fromEmail: emailConfig.fromEmail || '',
+      },
+      twilio: {
+        accountSid: twilioConfig.accountSid ? '••••••••' + twilioConfig.accountSid.slice(-4) : (TWILIO_ACCOUNT_SID ? '••••(env)' : ''),
+        hasAuthToken: Boolean(twilioConfig.authToken || TWILIO_AUTH_TOKEN),
+        fromNumber: twilioConfig.fromNumber || TWILIO_FROM_NUMBER || '',
+        configured: Boolean((twilioConfig.accountSid || TWILIO_ACCOUNT_SID) && (twilioConfig.authToken || TWILIO_AUTH_TOKEN) && (twilioConfig.fromNumber || TWILIO_FROM_NUMBER)),
       },
     }));
   }
@@ -491,6 +530,19 @@ const server = http.createServer(async (req, res) => {
         db.config.email.smtpPass = body.email.smtpPass.trim();
       }
       if (body.email.fromEmail !== undefined) db.config.email.fromEmail = body.email.fromEmail.trim();
+    }
+    // Save Twilio credentials from dashboard
+    if (body.twilio && typeof body.twilio === 'object') {
+      if (!db.config.twilio) db.config.twilio = {};
+      if (body.twilio.accountSid && !body.twilio.accountSid.includes('••••')) {
+        db.config.twilio.accountSid = body.twilio.accountSid.trim();
+      }
+      if (body.twilio.authToken && !body.twilio.authToken.includes('••••')) {
+        db.config.twilio.authToken = body.twilio.authToken.trim();
+      }
+      if (body.twilio.fromNumber !== undefined) {
+        db.config.twilio.fromNumber = body.twilio.fromNumber.trim();
+      }
     }
     saveDB(db);
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -530,6 +582,37 @@ const server = http.createServer(async (req, res) => {
       console.error('[TEST EMAIL ERROR]', err);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ error: err.message || 'Failed to send test email.' }));
+    }
+  }
+
+  // --- API: Admin Send Test SMS ---
+  if (pathname === '/api/admin/test-sms' && req.method === 'POST') {
+    const body = await parseBody(req);
+    const { toPhone } = body;
+    if (!toPhone) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Phone number required.' }));
+    }
+
+    const db = loadDB();
+    const twilioConfig = {
+      twilioAccountSid: db.config?.twilio?.accountSid || TWILIO_ACCOUNT_SID,
+      twilioAuthToken:  db.config?.twilio?.authToken  || TWILIO_AUTH_TOKEN,
+      twilioFromNumber: db.config?.twilio?.fromNumber || TWILIO_FROM_NUMBER,
+    };
+
+    try {
+      const result = await sendTestSms(toPhone.trim(), twilioConfig);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({
+        success: true,
+        message: `Test SMS sent to ${toPhone} via Twilio!`,
+        result,
+      }));
+    } catch (err) {
+      console.error('[TEST SMS ERROR]', err);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: err.message || 'Failed to send test SMS.' }));
     }
   }
 
@@ -659,6 +742,17 @@ const server = http.createServer(async (req, res) => {
     }, BASE_URL)
       .then(res => console.log(`[RECEIPT] Activated pass emailed to ${ticket.buyerEmail} on Venmo confirm.`))
       .catch(e => console.error('[RECEIPT ERROR] Failed to send activated pass:', e.message));
+
+    // Also fire SMS with unlocked QR pass link
+    const smsConfigVenmo = {
+      twilioAccountSid: db.config?.twilio?.accountSid || TWILIO_ACCOUNT_SID,
+      twilioAuthToken:  db.config?.twilio?.authToken  || TWILIO_AUTH_TOKEN,
+      twilioFromNumber: db.config?.twilio?.fromNumber || TWILIO_FROM_NUMBER,
+      venmoUsername: db.config?.venmoUsername || VENMO_USERNAME,
+    };
+    sendSmsReceipt(ticket, smsConfigVenmo, BASE_URL)
+      .then(r => { if (!r.skipped) console.log(`[SMS] Unlocked QR pass SMS sent to ${ticket.buyerPhone} on Venmo confirm.`); })
+      .catch(e => console.error('[SMS ERROR] Venmo confirm SMS failed:', e.message));
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ success: true, ticketId, ticket }));

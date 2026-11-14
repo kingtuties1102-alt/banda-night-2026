@@ -592,6 +592,49 @@
     </div>
   </div>
 
+  <!-- SMS / Twilio Config Card -->
+  <div class="config-section" style="margin-top:1rem;">
+    <div class="config-card" style="background:rgba(10,3,24,0.85); border:1px solid rgba(168,85,247,0.25); border-radius:14px; padding:1.25rem 1.5rem;">
+      <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.9rem;">
+        <span style="font-size:1.3rem;">📱</span>
+        <div>
+          <div style="font-weight:700; font-size:0.95rem; color:#e9d5ff;">SMS Text Receipts (Twilio)</div>
+          <div style="font-size:0.75rem; color:#9ca3af;">Attendees receive a text with their ticket link after purchase</div>
+        </div>
+        <span id="smsBadge" class="badge badge-paid" style="margin-left:auto;">Checking...</span>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:0.9rem;">
+        <div>
+          <label style="display:block; font-size:0.75rem; color:#9ca3af; margin-bottom:0.3rem;">Account SID</label>
+          <input type="password" id="twilioSidInput" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off"
+            style="width:100%; padding:0.6rem 0.8rem; background:rgba(8,2,18,0.85); border:1px solid rgba(168,85,247,0.4); border-radius:8px; color:white; font-size:0.82rem; outline:none; box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="display:block; font-size:0.75rem; color:#9ca3af; margin-bottom:0.3rem;">Auth Token</label>
+          <input type="password" id="twilioTokenInput" placeholder="Your Twilio Auth Token" autocomplete="off"
+            style="width:100%; padding:0.6rem 0.8rem; background:rgba(8,2,18,0.85); border:1px solid rgba(168,85,247,0.4); border-radius:8px; color:white; font-size:0.82rem; outline:none; box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="display:block; font-size:0.75rem; color:#9ca3af; margin-bottom:0.3rem;">Twilio Phone Number</label>
+          <input type="text" id="twilioFromInput" placeholder="+18055551234"
+            style="width:100%; padding:0.6rem 0.8rem; background:rgba(8,2,18,0.85); border:1px solid rgba(168,85,247,0.4); border-radius:8px; color:white; font-size:0.82rem; outline:none; box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="display:block; font-size:0.75rem; color:#9ca3af; margin-bottom:0.3rem;">Test SMS To</label>
+          <input type="tel" id="testSmsInput" placeholder="8055551234"
+            style="width:100%; padding:0.6rem 0.8rem; background:rgba(8,2,18,0.85); border:1px solid rgba(168,85,247,0.4); border-radius:8px; color:white; font-size:0.82rem; outline:none; box-sizing:border-box;">
+        </div>
+      </div>
+
+      <div style="display:flex; gap:0.6rem; align-items:center; flex-wrap:wrap;">
+        <button class="btn-action" onclick="saveTwilioConfig()" id="btnSaveTwilio" style="padding:0.6rem 1.1rem;">💾 Save SMS Config</button>
+        <button class="btn-action" onclick="sendAdminTestSms()" id="btnTestSms" style="padding:0.6rem 1.1rem;">📲 Send Test SMS</button>
+        <span id="smsSaveStatus" class="save-status"></span>
+      </div>
+    </div>
+  </div>
+
   <!-- Table Controls -->
   <div class="controls-bar">
     <input type="text" class="search-input" id="searchInput" placeholder="Search by name, email, or ticket ID..." oninput="filterTickets()">
@@ -787,6 +830,22 @@
               setProviderTab(em.provider);
             }
           }
+
+          // Update Twilio / SMS badge
+          if (cfgData.twilio) {
+            const tw = cfgData.twilio;
+            const smsBadge = document.getElementById('smsBadge');
+            if (tw.configured) {
+              smsBadge.textContent = `🟢 SMS Active (${tw.fromNumber})`;
+              smsBadge.className = 'badge badge-paid';
+            } else {
+              smsBadge.textContent = '🔴 SMS Not Configured';
+              smsBadge.className = 'badge badge-refunded';
+            }
+            if (tw.fromNumber && document.activeElement !== document.getElementById('twilioFromInput')) {
+              document.getElementById('twilioFromInput').value = tw.fromNumber;
+            }
+          }
         } catch (cfgErr) {
           console.error('Error fetching config:', cfgErr);
         }
@@ -923,6 +982,72 @@
       } catch (e) {
         statusEl.textContent = '❌ Error saving settings';
         statusEl.style.color = '#f87171';
+      }
+    }
+
+    async function saveTwilioConfig() {
+      const btn = document.getElementById('btnSaveTwilio');
+      const statusEl = document.getElementById('smsSaveStatus');
+      btn.disabled = true;
+      btn.textContent = '⏳ Saving...';
+      statusEl.textContent = '';
+      try {
+        const res = await fetch('/api/admin/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-pin': getAdminPin() },
+          body: JSON.stringify({
+            twilio: {
+              accountSid: document.getElementById('twilioSidInput').value.trim(),
+              authToken:  document.getElementById('twilioTokenInput').value.trim(),
+              fromNumber: document.getElementById('twilioFromInput').value.trim(),
+            },
+          }),
+        });
+        if (res.status === 401) { logoutAdmin(); return; }
+        const data = await res.json();
+        if (data.success) {
+          statusEl.textContent = '✅ Saved!';
+          statusEl.style.color = '#4ade80';
+          document.getElementById('twilioSidInput').value = '';
+          document.getElementById('twilioTokenInput').value = '';
+          fetchDashboardData();
+        } else {
+          statusEl.textContent = '❌ Failed to save';
+          statusEl.style.color = '#f87171';
+        }
+      } catch (e) {
+        statusEl.textContent = '❌ Error saving';
+        statusEl.style.color = '#f87171';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 Save SMS Config';
+      }
+    }
+
+    async function sendAdminTestSms() {
+      const toPhone = document.getElementById('testSmsInput').value.trim();
+      const btn = document.getElementById('btnTestSms');
+      if (!toPhone) { alert('Enter a phone number to test.'); return; }
+      btn.disabled = true;
+      btn.textContent = '⏳ Sending...';
+      try {
+        const res = await fetch('/api/admin/test-sms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-pin': getAdminPin() },
+          body: JSON.stringify({ toPhone }),
+        });
+        if (res.status === 401) { logoutAdmin(); return; }
+        const data = await res.json();
+        if (data.success) {
+          alert('✅ ' + data.message);
+        } else {
+          alert('❌ ' + (data.error || 'Failed to send test SMS.'));
+        }
+      } catch (e) {
+        alert('Connection error sending test SMS.');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '📲 Send Test SMS';
       }
     }
 
