@@ -4,6 +4,29 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const querystring = require('querystring');
+
+// --- ZERO-DEPENDENCY .ENV LOADER ---
+try {
+  const envPath = path.join(__dirname, '.env');
+  if (fs.existsSync(envPath)) {
+    const lines = fs.readFileSync(envPath, 'utf8').split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eqIdx = trimmed.indexOf('=');
+      if (eqIdx > 0) {
+        const key = trimmed.slice(0, eqIdx).trim();
+        let val = trimmed.slice(eqIdx + 1).trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.slice(1, -1);
+        }
+        if (!process.env[key]) {
+          process.env[key] = val;
+        }
+      }
+    }
+  }
+} catch (_) {}
 const { sendTicketReceipt, sendTestEmail } = require('./email');
 const { sendSmsReceipt, sendTestSms } = require('./sms');
 
@@ -22,6 +45,18 @@ const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY || '';
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
 const BASE_URL = process.env.BASE_URL || process.env.RENDER_EXTERNAL_URL || 'https://banda-night-2026-1.onrender.com';
 
+function getStripeConfig(db) {
+  const secretKey = (db?.config?.stripe?.secretKey || process.env.STRIPE_SECRET_KEY || '').trim();
+  const publishableKey = (db?.config?.stripe?.publishableKey || process.env.STRIPE_PUBLISHABLE_KEY || '').trim();
+  const webhookSecret = (db?.config?.stripe?.webhookSecret || process.env.STRIPE_WEBHOOK_SECRET || '').trim();
+  return {
+    secretKey,
+    publishableKey,
+    webhookSecret,
+    configured: Boolean(secretKey && !secretKey.includes('REPLACE')),
+  };
+}
+
 /**
  * Call the Stripe REST API directly (zero npm dependencies).
  * Mirrors the stripe npm SDK pattern but via native https.
@@ -39,7 +74,7 @@ function stripeRequest(method, path, body, apiVersion) {
       path: path + queryStr,
       method,
       headers: {
-        'Authorization': `Bearer ${STRIPE_SECRET_KEY}`,
+        'Authorization': `Bearer ${getStripeConfig(loadDB()).secretKey}`, 
         'Content-Type': 'application/x-www-form-urlencoded',
         'Content-Length': Buffer.byteLength(payload),
         'Stripe-Version': apiVersion || '2026-02-25.preview',
@@ -314,14 +349,15 @@ const server = http.createServer(async (req, res) => {
       ...info,
       venmoUsername: venmoUser,
       venmoConfigured: Boolean(venmoUser && venmoUser !== 'YOUR-VENMO-USERNAME'),
-      stripeConfigured: Boolean(STRIPE_SECRET_KEY && !STRIPE_SECRET_KEY.includes('REPLACE')),
-      stripePublishableKey: STRIPE_PUBLISHABLE_KEY,
+      stripeConfigured: getStripeConfig(db).configured,
+      stripePublishableKey: getStripeConfig(db).publishableKey,
     }));
   }
 
   // --- API: Create Product (Blueprint: create-product-chapter) ---
   if ((pathname === '/api/create-product' || pathname === '/create-product') && req.method === 'POST') {
-    if (!STRIPE_SECRET_KEY) {
+    const db_chk = loadDB();
+    if (!getStripeConfig(db_chk).configured) {
       res.writeHead(503, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ error: 'Stripe is not configured. Set STRIPE_SECRET_KEY.' }));
     }
@@ -342,7 +378,8 @@ const server = http.createServer(async (req, res) => {
 
   // --- API: Create Stripe Checkout Session (Blueprint: create-checkout-session-chapter) ---
   if ((pathname === '/api/create-checkout-session' || pathname === '/create-checkout-session') && req.method === 'POST') {
-    if (!STRIPE_SECRET_KEY) {
+    const db_chk = loadDB();
+    if (!getStripeConfig(db_chk).configured) {
       res.writeHead(503, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ error: 'Stripe is not configured. Set STRIPE_SECRET_KEY.' }));
     }
@@ -934,6 +971,11 @@ const server = http.createServer(async (req, res) => {
         fromNumber: twilioConfig.fromNumber || TWILIO_FROM_NUMBER || '',
         configured: Boolean((twilioConfig.accountSid || TWILIO_ACCOUNT_SID) && (twilioConfig.authToken || TWILIO_AUTH_TOKEN) && (twilioConfig.fromNumber || TWILIO_FROM_NUMBER)),
       },
+      stripe: {
+        publishableKey: getStripeConfig(db).publishableKey,
+        hasSecretKey: Boolean(getStripeConfig(db).secretKey),
+        configured: getStripeConfig(db).configured,
+      },
     }));
   }
 
@@ -974,6 +1016,19 @@ const server = http.createServer(async (req, res) => {
       }
       if (body.twilio.fromNumber !== undefined) {
         db.config.twilio.fromNumber = body.twilio.fromNumber.trim();
+      }
+    }
+    // Save Stripe credentials from dashboard
+    if (body.stripe && typeof body.stripe === 'object') {
+      if (!db.config.stripe) db.config.stripe = {};
+      if (body.stripe.publishableKey !== undefined && !body.stripe.publishableKey.includes('••••')) {
+        db.config.stripe.publishableKey = body.stripe.publishableKey.trim();
+      }
+      if (body.stripe.secretKey && !body.stripe.secretKey.includes('••••')) {
+        db.config.stripe.secretKey = body.stripe.secretKey.trim();
+      }
+      if (body.stripe.webhookSecret && !body.stripe.webhookSecret.includes('••••')) {
+        db.config.stripe.webhookSecret = body.stripe.webhookSecret.trim();
       }
     }
     saveDB(db);
