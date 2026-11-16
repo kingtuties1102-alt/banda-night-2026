@@ -1,6 +1,6 @@
 # 🎺 Sigma Lambda Beta — Banda Night 2026 Ticket Platform
 
-Official ticketing and event platform for **Sigma Lambda Beta International Fraternity Inc. (Sigma Gamma Chapter)** for **Banda Night 2026** (January 9th, 2026).
+Official ticketing and event platform for **Sigma Lambda Beta International Fraternity Inc. (Sigma Gamma Chapter)** for **Banda Night 2026** (November 25th, 2026).
 
 ---
 
