@@ -9,6 +9,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,800;1,600&display=swap" rel="stylesheet">
+
+  <!-- Stripe.js (Dahlia) — PCI requirement: must load directly from Stripe, never bundled -->
+  <script src="https://js.stripe.com/dahlia/stripe.js"></script>
   
   <style>
     /* ════════════════════════════════════════════════════════════════
@@ -1745,7 +1748,21 @@
           <span onclick="hidePrivateDemo()" style="color:#94a3b8; font-size:0.72rem; cursor:pointer; margin-left:0.5rem; text-decoration:underline;">(hide)</span>
         </div>
 
-        <form id="cardPaymentForm" autocomplete="on" onsubmit="handleCardCheckout(event)">
+        <!-- Step 1: Pay button (shown when Stripe is configured) or legacy manual form -->
+        <div id="stripeInfoStep">
+          <button type="button" class="btn-pay-submit" id="btnInitStripe" onclick="initStripeCheckout()">
+            <span id="btnInitIcon">🔒</span>
+            <span id="btnInitText">Pay $15.00 with Card · Get QR Ticket</span>
+          </button>
+          <div class="security-badges">
+            <span onclick="registerSecretTap()" style="cursor:default;" title="">🔒 256-Bit SSL Encrypted</span>
+            <span>💳 Visa · MC · Amex · Discover</span>
+            <span>⚡ Instant Digital Ticket</span>
+          </div>
+        </div>
+
+        <!-- Legacy manual card form (shown when Stripe keys are not configured) -->
+        <form id="cardPaymentForm" autocomplete="on" onsubmit="handleCardCheckout(event)" style="display:none;">
           <!-- Card Number -->
           <div class="form-full">
             <label class="form-label" for="cardNumber">Card Number</label>
@@ -1790,6 +1807,13 @@
             <span>⚡ Instant Digital Ticket</span>
           </div>
         </form>
+
+        <!-- Step 2: Stripe Embedded Checkout Form renders here -->
+        <div id="stripeCheckoutStep" style="display:none;">
+          <div id="checkout-form"></div>
+          <div id="stripeFormError" style="color:#f87171; font-size:0.85rem; margin-top:0.5rem; display:none;"></div>
+          <button type="button" onclick="cancelStripeCheckout()" style="margin-top:0.75rem; background:none; border:none; color:#94a3b8; font-size:0.8rem; cursor:pointer; text-decoration:underline;">← Use a different payment method</button>
+        </div>
       </div>
 
     </div>
@@ -2104,6 +2128,7 @@
         // Update checkout form tags
         document.getElementById('checkoutTierTag').textContent = `Purchasing: ${currentTier.name} ($${currentTier.price}.00)`;
         document.getElementById('btnPayText').textContent = `Pay $${currentTier.price}.00 with Card · Get QR Ticket`;
+        document.getElementById('btnInitText').textContent = `Pay $${currentTier.price}.00 with Card · Get QR Ticket`;
         document.getElementById('btnVenmoText').textContent = `Pay $${currentTier.price}.00 via Venmo & Get QR Pass`;
         const venmoHandle = data.venmoUsername || 'Betas_UCSB';
         document.getElementById('displayVenmoHandle').textContent = `@${venmoHandle}`;
@@ -2554,8 +2579,176 @@
     }
 
     // ════════════════════════════════════════════════════════════════
-    // CARD CHECKOUT HANDLER
+    // STRIPE CHECKOUT FORM INTEGRATION
     // ════════════════════════════════════════════════════════════════
+    let stripeInstance = null;
+    let stripeCheckout = null;
+    let stripeConfigured = false;
+
+    // On load, check if Stripe is configured and show the right card form
+    (async function detectStripe() {
+      try {
+        const res = await fetch('/api/config');
+        const cfg = await res.json();
+        stripeConfigured = Boolean(cfg.stripeConfigured && cfg.stripePublishableKey);
+        if (stripeConfigured) {
+          stripeInstance = Stripe(cfg.stripePublishableKey);
+          // Show Stripe button, hide legacy form
+          document.getElementById('stripeInfoStep').style.display = 'block';
+          document.getElementById('cardPaymentForm').style.display = 'none';
+        } else {
+          // Stripe not configured — fall back to legacy form
+          document.getElementById('stripeInfoStep').style.display = 'none';
+          document.getElementById('cardPaymentForm').style.display = 'block';
+        }
+      } catch (e) {
+        // If config fetch fails, show legacy form
+        document.getElementById('stripeInfoStep').style.display = 'none';
+        document.getElementById('cardPaymentForm').style.display = 'block';
+      }
+    })();
+
+    async function initStripeCheckout() {
+      const name = document.getElementById('attendeeName').value.trim();
+      const email = document.getElementById('attendeeEmail').value.trim();
+      const phone = document.getElementById('attendeePhone').value.trim();
+
+      if (!name) {
+        alert('Please enter your full name before continuing.');
+        document.getElementById('attendeeName').focus();
+        return;
+      }
+      if (!email || !email.includes('@')) {
+        alert('Please enter a valid email address before continuing.');
+        document.getElementById('attendeeEmail').focus();
+        return;
+      }
+
+      const btn = document.getElementById('btnInitStripe');
+      const btnIcon = document.getElementById('btnInitIcon');
+      const btnText = document.getElementById('btnInitText');
+      btn.disabled = true;
+      btnIcon.textContent = '⏳';
+      btnText.textContent = 'Setting up secure payment...';
+
+      try {
+        const res = await fetch('/api/create-checkout-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, phone }),
+        });
+        const data = await res.json();
+
+        if (!data.client_secret) {
+          alert(data.error || 'Could not start payment session. Please try again.');
+          return;
+        }
+
+        const appearance = {
+          theme: 'night',
+          labels: 'auto',
+          inputs: 'spaced',
+          variables: {
+            borderRadius: '8px',
+            colorBackground: 'rgba(8,2,18,0.95)',
+            colorDanger: '#f87171',
+            colorPrimary: '#a855f7',
+            colorSuccess: '#4ade80',
+            colorText: '#e9d5ff',
+            fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif',
+            fontSizeBase: '15px',
+            spacingUnit: '4px',
+          },
+        };
+
+        const clientSecretPromise = Promise.resolve(data.client_secret);
+        stripeCheckout = stripeInstance.initCheckoutFormSdk({ clientSecret: clientSecretPromise, appearance });
+
+        const form = stripeCheckout.createForm({ layout: 'expanded' });
+        document.getElementById('checkout-form').innerHTML = '';
+        form.mount('#checkout-form');
+
+        const loadActionsResult = await stripeCheckout.loadActions();
+        if (loadActionsResult.type === 'success') {
+          form.on('confirm', async (event) => {
+            try {
+              await loadActionsResult.actions.confirm({ formConfirmEvent: event });
+              // After Stripe confirms, finalize the ticket on our server
+              await finalizeStripeTicket(data.session_id || null, data.client_secret);
+            } catch (error) {
+              console.error('Payment confirmation error:', error);
+              const errEl = document.getElementById('stripeFormError');
+              errEl.textContent = error.message || 'Payment failed. Please try again.';
+              errEl.style.display = 'block';
+            }
+          });
+        }
+
+        // Show Stripe form, hide the button step
+        document.getElementById('stripeInfoStep').style.display = 'none';
+        document.getElementById('stripeCheckoutStep').style.display = 'block';
+
+      } catch (err) {
+        console.error('Stripe init error:', err);
+        alert(err.message || 'Could not initialize payment. Please try again.');
+      } finally {
+        btn.disabled = false;
+        btnIcon.textContent = '🔒';
+        if (currentTierData) {
+          btnText.textContent = `Pay $${currentTierData.currentTier.price}.00 with Card · Get QR Ticket`;
+        } else {
+          btnText.textContent = 'Pay with Card · Get QR Ticket';
+        }
+      }
+    }
+
+    async function finalizeStripeTicket(sessionId, clientSecret) {
+      // Extract session_id from the return_url pattern or from the client_secret prefix
+      // Stripe client_secret format: cs_live_xxx_secret_yyy — session ID is in the URL
+      // We'll poll /api/checkout-complete — the server looks up by session ID stored in pendingSessions
+      // The session_id is returned from our /api/create-checkout-session response
+      // Re-fetch to get the ticketId from the session
+      try {
+        // The return_url includes {CHECKOUT_SESSION_ID} which Stripe fills in
+        // For embedded mode we finalize via our endpoint using the ticketId from the session
+        // We stored the pending ticket keyed by session ID on the server
+        // The client_secret starts with the session ID: "cs_xxx_secret_yyy"
+        const derivedSessionId = clientSecret ? clientSecret.split('_secret_')[0] : sessionId;
+        const res = await fetch('/api/checkout-complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: derivedSessionId }),
+        });
+        const data = await res.json();
+        if (data.success && data.ticket) {
+          cancelStripeCheckout();
+          document.getElementById('attendeeName').value = '';
+          document.getElementById('attendeeEmail').value = '';
+          document.getElementById('attendeePhone').value = '';
+          await showDigitalPass(data.ticket, false, '', null);
+        } else {
+          const errEl = document.getElementById('stripeFormError');
+          errEl.textContent = data.error || 'Payment received but could not issue ticket. Contact organizers.';
+          errEl.style.display = 'block';
+        }
+      } catch (err) {
+        console.error('Ticket finalization error:', err);
+        const errEl = document.getElementById('stripeFormError');
+        errEl.textContent = 'Payment received! Contact organizers with your email to retrieve your ticket.';
+        errEl.style.display = 'block';
+      }
+    }
+
+    function cancelStripeCheckout() {
+      document.getElementById('stripeCheckoutStep').style.display = 'none';
+      document.getElementById('stripeInfoStep').style.display = stripeConfigured ? 'block' : 'none';
+      document.getElementById('cardPaymentForm').style.display = stripeConfigured ? 'none' : 'block';
+      document.getElementById('checkout-form').innerHTML = '';
+      document.getElementById('stripeFormError').style.display = 'none';
+      stripeCheckout = null;
+    }
+
+    // Legacy card handler (used only when Stripe keys are not configured)
     async function handleCardCheckout(e) {
       e.preventDefault();
 
@@ -2567,25 +2760,13 @@
       const cardCvc = document.getElementById('cardCvc').value;
       const zip = document.getElementById('cardZip').value;
 
-      if (!name) {
-        alert('Please enter your full name.');
-        document.getElementById('attendeeName').focus();
-        return;
-      }
-      if (!email || !email.includes('@')) {
-        alert('Please enter a valid email address.');
-        document.getElementById('attendeeEmail').focus();
-        return;
-      }
-      if (!cardNumber || !cardExp || !cardCvc) {
-        alert('Please fill out all card payment details.');
-        return;
-      }
+      if (!name) { alert('Please enter your full name.'); document.getElementById('attendeeName').focus(); return; }
+      if (!email || !email.includes('@')) { alert('Please enter a valid email address.'); document.getElementById('attendeeEmail').focus(); return; }
+      if (!cardNumber || !cardExp || !cardCvc) { alert('Please fill out all card payment details.'); return; }
 
       const payBtn = document.getElementById('btnPaySubmit');
       const payText = document.getElementById('btnPayText');
       const payIcon = document.getElementById('btnPayIcon');
-
       payBtn.disabled = true;
       payIcon.textContent = '⏳';
       payText.textContent = 'Authorizing Payment...';
@@ -2598,31 +2779,15 @@
         const res = await fetch('/api/purchase', {
           method: 'POST',
           headers,
-          body: JSON.stringify({
-            name,
-            email,
-            phone,
-            paymentMethod: 'card',
-            cardNumber,
-            cardExp,
-            cardCvc,
-            zip,
-          }),
+          body: JSON.stringify({ name, email, phone, paymentMethod: 'card', cardNumber, cardExp, cardCvc, zip }),
         });
-
         const data = await res.json();
-
-        // Only show QR pass after server confirms payment success
         if (data.success && data.ticket) {
           await showDigitalPass(data.ticket, false, '', null);
-
-          // Reset inputs
           document.getElementById('attendeeName').value = '';
           document.getElementById('attendeeEmail').value = '';
           document.getElementById('attendeePhone').value = '';
           document.getElementById('cardPaymentForm').reset();
-          brandBadge.textContent = 'Card';
-          brandBadge.style.color = 'var(--purple-400)';
         } else {
           alert(data.error || 'Payment failed. Please verify your card details.');
         }
@@ -2632,11 +2797,7 @@
       } finally {
         payBtn.disabled = false;
         payIcon.textContent = '🔒';
-        if (currentTierData) {
-          payText.textContent = `Pay $${currentTierData.currentTier.price}.00 with Card · Get QR Ticket`;
-        } else {
-          payText.textContent = 'Pay with Card · Get QR Ticket';
-        }
+        payText.textContent = currentTierData ? `Pay $${currentTierData.currentTier.price}.00 with Card · Get QR Ticket` : 'Pay with Card · Get QR Ticket';
       }
     }
 

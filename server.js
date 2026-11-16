@@ -21,6 +21,64 @@ const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
 const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY || '';
 const BASE_URL = process.env.BASE_URL || process.env.RENDER_EXTERNAL_URL || 'https://banda-night-2026-1.onrender.com';
 
+/**
+ * Call the Stripe REST API directly (zero npm dependencies).
+ * Mirrors the stripe npm SDK pattern but via native https.
+ */
+function stripeRequest(method, path, body) {
+  return new Promise((resolve, reject) => {
+    const payload = body ? new URLSearchParams(flattenForStripe(body)).toString() : '';
+    const req = https.request({
+      hostname: 'api.stripe.com',
+      path,
+      method,
+      headers: {
+        'Authorization': `Bearer ${STRIPE_SECRET_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Length': Buffer.byteLength(payload),
+        'Stripe-Version': '2026-03-25.dahlia',
+      },
+      timeout: 15000,
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (res.statusCode >= 200 && res.statusCode < 300) resolve(parsed);
+          else reject(new Error(parsed.error?.message || `Stripe HTTP ${res.statusCode}`));
+        } catch (e) { reject(new Error(`Stripe parse error: ${data}`)); }
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Stripe request timed out')); });
+    if (payload) req.write(payload);
+    req.end();
+  });
+}
+
+/** Flatten nested objects for Stripe's form-encoded API (e.g. line_items[0][price]) */
+function flattenForStripe(obj, prefix = '') {
+  const result = {};
+  for (const [key, val] of Object.entries(obj)) {
+    const fullKey = prefix ? `${prefix}[${key}]` : key;
+    if (val !== null && val !== undefined && typeof val === 'object' && !Array.isArray(val)) {
+      Object.assign(result, flattenForStripe(val, fullKey));
+    } else if (Array.isArray(val)) {
+      val.forEach((item, i) => {
+        if (typeof item === 'object') {
+          Object.assign(result, flattenForStripe(item, `${fullKey}[${i}]`));
+        } else {
+          result[`${fullKey}[${i}]`] = item;
+        }
+      });
+    } else if (val !== null && val !== undefined) {
+      result[fullKey] = String(val);
+    }
+  }
+  return result;
+}
+
 // --- VENMO CONFIGURATION ---
 // Default Venmo username if not set in config
 let VENMO_USERNAME = process.env.VENMO_USERNAME || 'Betas_UCSB';
@@ -186,6 +244,179 @@ const server = http.createServer(async (req, res) => {
       stripeConfigured: Boolean(STRIPE_SECRET_KEY && !STRIPE_SECRET_KEY.includes('REPLACE')),
       stripePublishableKey: STRIPE_PUBLISHABLE_KEY,
     }));
+  }
+
+  // --- API: Create Stripe Checkout Session (Embedded Form) ---
+  if (pathname === '/api/create-checkout-session' && req.method === 'POST') {
+    if (!STRIPE_SECRET_KEY) {
+      res.writeHead(503, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Stripe is not configured. Set STRIPE_SECRET_KEY on Render.' }));
+    }
+
+    const body = await parseBody(req);
+    const { name, email, phone } = body;
+
+    if (!name || !name.trim()) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Please enter your full name.' }));
+    }
+    if (!email || !email.includes('@')) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Please enter a valid email address.' }));
+    }
+
+    const db = loadDB();
+    const info = getCurrentTierInfo(db);
+    const tier = info.currentTier;
+
+    // Build a pending ticket so we can link it after Stripe confirms payment
+    const ticketId = 'SLB-' + crypto.randomBytes(6).toString('hex').toUpperCase();
+    const securityToken = crypto.randomBytes(16).toString('hex');
+
+    const pendingTicket = {
+      ticketId,
+      securityToken,
+      buyerName: name.trim(),
+      buyerEmail: email.trim().toLowerCase(),
+      buyerPhone: (phone || '').trim(),
+      tier: tier.name,
+      price: tier.price,
+      cardBrand: '',
+      cardLast4: '',
+      purchasedAt: new Date().toISOString(),
+      checkedIn: false,
+      checkedInAt: null,
+      paymentStatus: 'STRIPE_PENDING',
+      method: 'CARD',
+      emailStatus: 'PENDING',
+      emailSentAt: null,
+      emailError: null,
+    };
+
+    if (!db.pendingSessions) db.pendingSessions = {};
+
+    try {
+      const session = await stripeRequest('POST', '/v1/checkout/sessions', {
+        ui_mode: 'embedded',
+        mode: 'payment',
+        billing_address_collection: 'auto',
+        phone_number_collection: { enabled: false },
+        automatic_tax: { enabled: false },
+        payment_method_collection: 'always',
+        submit_type: 'auto',
+        customer_email: pendingTicket.buyerEmail,
+        line_items: [{
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `Banda Night 2026 — ${tier.name} Ticket`,
+              description: `Sigma Lambda Beta · Sigma Gamma Chapter · Jan 9, 2026`,
+            },
+            unit_amount: tier.price * 100, // cents
+          },
+          quantity: 1,
+        }],
+        payment_intent_data: {
+          metadata: { ticketId, buyerName: pendingTicket.buyerName },
+        },
+        metadata: { ticketId },
+        return_url: `${BASE_URL}/ticket.html?id=${ticketId}&session_id={CHECKOUT_SESSION_ID}`,
+      });
+
+      // Store pending ticket keyed by Stripe session ID
+      db.pendingSessions[session.id] = pendingTicket;
+      saveDB(db);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ client_secret: session.client_secret }));
+    } catch (err) {
+      console.error('[STRIPE ERROR] create-checkout-session:', err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: err.message || 'Failed to create payment session.' }));
+    }
+  }
+
+  // --- API: Finalize ticket after Stripe Checkout completes ---
+  if (pathname === '/api/checkout-complete' && req.method === 'POST') {
+    const body = await parseBody(req);
+    const { session_id } = body;
+
+    if (!session_id) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'session_id required.' }));
+    }
+
+    const db = loadDB();
+    if (!db.pendingSessions) db.pendingSessions = {};
+
+    // Check if already finalized (idempotent)
+    const existing = db.tickets.find(t => t.stripeSessionId === session_id);
+    if (existing) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ success: true, ticket: existing }));
+    }
+
+    const pending = db.pendingSessions[session_id];
+    if (!pending) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Session not found.' }));
+    }
+
+    try {
+      // Verify payment status with Stripe
+      const session = await stripeRequest('GET', `/v1/checkout/sessions/${session_id}`, {});
+      if (session.payment_status !== 'paid') {
+        res.writeHead(402, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Payment not yet confirmed by Stripe.' }));
+      }
+
+      // Extract card details from payment intent
+      let cardBrand = '';
+      let cardLast4 = '';
+      if (session.payment_intent) {
+        try {
+          const pi = await stripeRequest('GET', `/v1/payment_intents/${session.payment_intent}?expand[]=payment_method`, {});
+          cardBrand = pi.payment_method?.card?.brand || '';
+          cardLast4 = pi.payment_method?.card?.last4 || '';
+        } catch (_) { /* non-fatal */ }
+      }
+
+      const ticket = {
+        ...pending,
+        paymentStatus: 'PAID',
+        paidAt: new Date().toISOString(),
+        cardBrand,
+        cardLast4,
+        stripeSessionId: session_id,
+        method: 'CARD',
+      };
+
+      db.tickets.push(ticket);
+      delete db.pendingSessions[session_id];
+      saveDB(db);
+
+      // Send email + SMS receipts
+      const emailConfig = db.config?.email || {};
+      const smsConfig = {
+        twilioAccountSid: db.config?.twilio?.accountSid || TWILIO_ACCOUNT_SID,
+        twilioAuthToken:  db.config?.twilio?.authToken  || TWILIO_AUTH_TOKEN,
+        twilioFromNumber: db.config?.twilio?.fromNumber || TWILIO_FROM_NUMBER,
+        venmoUsername: db.config?.venmoUsername || VENMO_USERNAME,
+      };
+      sendTicketReceipt(ticket, { ...emailConfig, venmoUsername: db.config?.venmoUsername || VENMO_USERNAME }, BASE_URL)
+        .then(r => { ticket.emailStatus = r.simulated ? 'SIMULATED' : 'SENT'; ticket.emailSentAt = new Date().toISOString(); saveDB(db); })
+        .catch(e => { ticket.emailStatus = 'FAILED'; ticket.emailError = e.message; saveDB(db); });
+      sendSmsReceipt(ticket, smsConfig, BASE_URL)
+        .then(r => { if (!r.skipped) { ticket.smsStatus = 'SENT'; ticket.smsSentAt = new Date().toISOString(); saveDB(db); } })
+        .catch(e => { ticket.smsStatus = 'FAILED'; ticket.smsError = e.message; saveDB(db); });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ success: true, ticket }));
+    } catch (err) {
+      console.error('[STRIPE ERROR] checkout-complete:', err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: err.message || 'Could not finalize ticket.' }));
+    }
   }
 
   // --- API: Purchase (supports both card and Venmo) ---
