@@ -2639,6 +2639,12 @@
         });
         const data = await res.json();
 
+        // Hosted Checkout: redirect to Stripe-hosted checkout URL
+        if (data.url) {
+          window.location.href = data.url;
+          return;
+        }
+
         if (!data.client_secret) {
           alert(data.error || 'Could not start payment session. Please try again.');
           return;

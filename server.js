@@ -19,24 +19,30 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 // --- STRIPE CONFIGURATION ---
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
 const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY || '';
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
 const BASE_URL = process.env.BASE_URL || process.env.RENDER_EXTERNAL_URL || 'https://banda-night-2026-1.onrender.com';
 
 /**
  * Call the Stripe REST API directly (zero npm dependencies).
  * Mirrors the stripe npm SDK pattern but via native https.
  */
-function stripeRequest(method, path, body) {
+function stripeRequest(method, path, body, apiVersion) {
   return new Promise((resolve, reject) => {
-    const payload = body ? new URLSearchParams(flattenForStripe(body)).toString() : '';
+    const isGet = method === 'GET';
+    // For GET requests with body params, append as query string
+    const queryStr = (isGet && body && Object.keys(body).length)
+      ? '?' + new URLSearchParams(flattenForStripe(body)).toString()
+      : '';
+    const payload = !isGet && body ? new URLSearchParams(flattenForStripe(body)).toString() : '';
     const req = https.request({
       hostname: 'api.stripe.com',
-      path,
+      path: path + queryStr,
       method,
       headers: {
         'Authorization': `Bearer ${STRIPE_SECRET_KEY}`,
         'Content-Type': 'application/x-www-form-urlencoded',
         'Content-Length': Buffer.byteLength(payload),
-        'Stripe-Version': '2026-03-25.dahlia',
+        'Stripe-Version': apiVersion || '2026-02-25.preview',
       },
       timeout: 15000,
     }, (res) => {
@@ -55,6 +61,72 @@ function stripeRequest(method, path, body) {
     if (payload) req.write(payload);
     req.end();
   });
+}
+
+/**
+ * Ensure a Stripe Product exists for the given tier (Managed Payments flow).
+ * Creates the product with tax_code txcd_10103100 (digital/event admission).
+ * Caches the returned default_price ID in db.config.stripePrices[tierName].
+ */
+/**
+ * Create a digital one-time product with eligible tax code (Managed Payments flow).
+ * Blueprint: create-product-chapter / create-one-time-product
+ *   Endpoint: POST /v1/products
+ *   api_version: 2026-02-25.preview
+ *   name: 'Hamlet (e-book)'
+ *   tax_code: 'txcd_10103100'
+ *   default_price_data: { currency: 'usd', unit_amount: 1000 }
+ */
+async function createOneTimeProduct() {
+  const db = loadDB();
+  if (db.config?.stripeProduct?.default_price) {
+    return db.config.stripeProduct;
+  }
+
+  const product = await stripeRequest('POST', '/v1/products', {
+    name: 'Hamlet (e-book)',
+    tax_code: 'txcd_10103100',
+    default_price_data: {
+      currency: 'usd',
+      unit_amount: 1000,
+    },
+  }, '2026-02-25.preview');
+
+  if (!db.config) db.config = {};
+  db.config.stripeProduct = {
+    id: product.id,
+    default_price: product.default_price,
+    name: product.name,
+    tax_code: product.tax_code,
+  };
+  saveDB(db);
+  console.log(`[STRIPE] Created digital product: ${product.name} (${product.id}), default_price: ${product.default_price}`);
+  return db.config.stripeProduct;
+}
+
+/**
+ * Verify a Stripe webhook signature using HMAC-SHA256.
+ * Returns the parsed event or throws on invalid signature.
+ */
+function constructStripeEvent(rawBody, signature, secret) {
+  // Stripe signature format: t=timestamp,v1=hmac,...
+  const parts = {};
+  signature.split(',').forEach(p => { const [k, v] = p.split('='); parts[k] = v; });
+  const timestamp = parts.t;
+  const v1 = parts.v1;
+  if (!timestamp || !v1) throw new Error('Invalid Stripe-Signature header');
+
+  // Replay attack prevention: reject events older than 5 minutes
+  const tolerance = 300;
+  if (Math.abs(Date.now() / 1000 - parseInt(timestamp, 10)) > tolerance) {
+    throw new Error('Stripe webhook timestamp too old');
+  }
+
+  const signedPayload = `${timestamp}.${rawBody}`;
+  const expected = crypto.createHmac('sha256', secret).update(signedPayload).digest('hex');
+  if (expected !== v1) throw new Error('Stripe webhook signature mismatch');
+
+  return JSON.parse(rawBody);
 }
 
 /** Flatten nested objects for Stripe's form-encoded API (e.g. line_items[0][price]) */
@@ -202,6 +274,7 @@ function parseBody(req) {
     let raw = '';
     req.on('data', chunk => { raw += chunk; });
     req.on('end', () => {
+      req.rawBody = raw;
       try {
         resolve(raw ? JSON.parse(raw) : {});
       } catch (err) {
@@ -246,93 +319,221 @@ const server = http.createServer(async (req, res) => {
     }));
   }
 
-  // --- API: Create Stripe Checkout Session (Embedded Form) ---
-  if (pathname === '/api/create-checkout-session' && req.method === 'POST') {
+  // --- API: Create Product (Blueprint: create-product-chapter) ---
+  if ((pathname === '/api/create-product' || pathname === '/create-product') && req.method === 'POST') {
     if (!STRIPE_SECRET_KEY) {
       res.writeHead(503, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ error: 'Stripe is not configured. Set STRIPE_SECRET_KEY on Render.' }));
+      return res.end(JSON.stringify({ error: 'Stripe is not configured. Set STRIPE_SECRET_KEY.' }));
+    }
+    try {
+      const product = await createOneTimeProduct();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({
+        success: true,
+        product,
+        default_price: product.default_price,
+      }));
+    } catch (err) {
+      console.error('[STRIPE ERROR] create-product:', err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: err.message || 'Failed to create product.' }));
+    }
+  }
+
+  // --- API: Create Stripe Checkout Session (Blueprint: create-checkout-session-chapter) ---
+  if ((pathname === '/api/create-checkout-session' || pathname === '/create-checkout-session') && req.method === 'POST') {
+    if (!STRIPE_SECRET_KEY) {
+      res.writeHead(503, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Stripe is not configured. Set STRIPE_SECRET_KEY.' }));
     }
 
     const body = await parseBody(req);
-    const { name, email, phone } = body;
-
-    if (!name || !name.trim()) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ error: 'Please enter your full name.' }));
-    }
-    if (!email || !email.includes('@')) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ error: 'Please enter a valid email address.' }));
-    }
-
     const db = loadDB();
-    const info = getCurrentTierInfo(db);
-    const tier = info.currentTier;
-
-    // Build a pending ticket so we can link it after Stripe confirms payment
-    const ticketId = 'SLB-' + crypto.randomBytes(6).toString('hex').toUpperCase();
-    const securityToken = crypto.randomBytes(16).toString('hex');
-
-    const pendingTicket = {
-      ticketId,
-      securityToken,
-      buyerName: name.trim(),
-      buyerEmail: email.trim().toLowerCase(),
-      buyerPhone: (phone || '').trim(),
-      tier: tier.name,
-      price: tier.price,
-      cardBrand: '',
-      cardLast4: '',
-      purchasedAt: new Date().toISOString(),
-      checkedIn: false,
-      checkedInAt: null,
-      paymentStatus: 'STRIPE_PENDING',
-      method: 'CARD',
-      emailStatus: 'PENDING',
-      emailSentAt: null,
-      emailError: null,
-    };
-
-    if (!db.pendingSessions) db.pendingSessions = {};
 
     try {
-      const session = await stripeRequest('POST', '/v1/checkout/sessions', {
-        ui_mode: 'embedded',
-        mode: 'payment',
-        billing_address_collection: 'auto',
-        phone_number_collection: { enabled: false },
-        automatic_tax: { enabled: false },
-        payment_method_collection: 'always',
-        submit_type: 'auto',
-        customer_email: pendingTicket.buyerEmail,
-        line_items: [{
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: `Banda Night 2026 — ${tier.name} Ticket`,
-              description: `Sigma Lambda Beta · Sigma Gamma Chapter · Jan 9, 2026`,
-            },
-            unit_amount: tier.price * 100, // cents
-          },
-          quantity: 1,
-        }],
-        payment_intent_data: {
-          metadata: { ticketId, buyerName: pendingTicket.buyerName },
-        },
-        metadata: { ticketId },
-        return_url: `${BASE_URL}/ticket.html?id=${ticketId}&session_id={CHECKOUT_SESSION_ID}`,
-      });
+      // 1. Retrieve or create digital product to obtain default_price
+      let priceId = body.price || body.priceId;
+      if (!priceId) {
+        const product = await createOneTimeProduct();
+        priceId = product.default_price;
+      }
 
-      // Store pending ticket keyed by Stripe session ID
-      db.pendingSessions[session.id] = pendingTicket;
+      const ticketId = body.ticketId || ('SLB-' + crypto.randomBytes(6).toString('hex').toUpperCase());
+      const securityToken = crypto.randomBytes(16).toString('hex');
+      const buyerName = (body.name || body.buyerName || 'Attendee').trim();
+      const buyerEmail = (body.email || body.buyerEmail || body.customer_email || 'attendee@example.com').trim().toLowerCase();
+      const buyerPhone = (body.phone || body.buyerPhone || '').trim();
+
+      // 2. Create hosted Checkout Session with Managed Payments enabled
+      // API Version: 2026-02-25.preview
+      // mode: payment
+      // managed_payments[enabled]: true
+      // line_items: [{ price: default_price, quantity: 1 }]
+      // success_url: application_url
+      const sessionParams = {
+        mode: 'payment',
+        'managed_payments[enabled]': 'true',
+        line_items: [{ price: priceId, quantity: 1 }],
+        success_url: `${BASE_URL}/success.html?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${BASE_URL}/#tickets`,
+      };
+
+      if (buyerEmail && buyerEmail.includes('@')) {
+        sessionParams.customer_email = buyerEmail;
+      }
+
+      const session = await stripeRequest('POST', '/v1/checkout/sessions', sessionParams, '2026-02-25.preview');
+
+      // Persist pending ticket keyed by Stripe session ID in datastore
+      if (!db.pendingSessions) db.pendingSessions = {};
+      db.pendingSessions[session.id] = {
+        ticketId,
+        securityToken,
+        buyerName,
+        buyerEmail,
+        buyerPhone,
+        tier: body.tier || 'Hamlet (e-book)',
+        price: 10,
+        purchasedAt: new Date().toISOString(),
+        checkedIn: false,
+        checkedInAt: null,
+        paymentStatus: 'STRIPE_PENDING',
+        method: 'CARD',
+        stripeSessionId: session.id,
+      };
       saveDB(db);
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ client_secret: session.client_secret }));
+      return res.end(JSON.stringify({
+        url: session.url,
+        id: session.id,
+        ticketId,
+      }));
     } catch (err) {
       console.error('[STRIPE ERROR] create-checkout-session:', err.message);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ error: err.message || 'Failed to create payment session.' }));
+    }
+  }
+
+  // --- API: Webhook Listener (Blueprint: handle-webhooks-chapter) ---
+  if ((pathname === '/api/webhook' || pathname === '/webhook') && req.method === 'POST') {
+    const body = await parseBody(req);
+    const signature = req.headers['stripe-signature'];
+    let event;
+
+    if (STRIPE_WEBHOOK_SECRET && signature) {
+      try {
+        event = constructStripeEvent(req.rawBody, signature, STRIPE_WEBHOOK_SECRET);
+      } catch (err) {
+        console.error('[STRIPE WEBHOOK ERROR] Signature verification failed:', err.message);
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: `Webhook Error: ${err.message}` }));
+      }
+    } else {
+      event = body;
+    }
+
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data?.object || {};
+      const sessionId = session.id;
+      console.log(`[STRIPE WEBHOOK] checkout.session.completed for session: ${sessionId}`);
+
+      const db = loadDB();
+      if (!db.pendingSessions) db.pendingSessions = {};
+
+      let ticket = (db.tickets || []).find(t => t.stripeSessionId === sessionId);
+      if (!ticket && db.pendingSessions[sessionId]) {
+        const pending = db.pendingSessions[sessionId];
+        ticket = {
+          ...pending,
+          paymentStatus: 'PAID',
+          paidAt: new Date().toISOString(),
+          stripeSessionId: sessionId,
+          method: 'CARD',
+        };
+        db.tickets.push(ticket);
+        delete db.pendingSessions[sessionId];
+        saveDB(db);
+
+        // Send notifications
+        const emailConfig = db.config?.email || {};
+        const smsConfig = {
+          twilioAccountSid: db.config?.twilio?.accountSid || TWILIO_ACCOUNT_SID,
+          twilioAuthToken:  db.config?.twilio?.authToken  || TWILIO_AUTH_TOKEN,
+          twilioFromNumber: db.config?.twilio?.fromNumber || TWILIO_FROM_NUMBER,
+          venmoUsername: db.config?.venmoUsername || VENMO_USERNAME,
+        };
+        sendTicketReceipt(ticket, { ...emailConfig, venmoUsername: db.config?.venmoUsername || VENMO_USERNAME }, BASE_URL).catch(() => {});
+        sendSmsReceipt(ticket, smsConfig, BASE_URL).catch(() => {});
+      } else if (ticket) {
+        ticket.paymentStatus = 'PAID';
+        ticket.paidAt = ticket.paidAt || new Date().toISOString();
+        saveDB(db);
+      }
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ received: true }));
+  }
+
+  // --- API: Verify Payment (for success.html verification) ---
+  if ((pathname === '/api/verify-payment' || pathname === '/verify-payment') && req.method === 'POST') {
+    const body = await parseBody(req);
+    const sessionId = body.sessionId || body.session_id;
+
+    if (!sessionId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'sessionId required.' }));
+    }
+
+    const db = loadDB();
+    if (!db.pendingSessions) db.pendingSessions = {};
+
+    let ticket = (db.tickets || []).find(t => t.stripeSessionId === sessionId);
+    if (ticket && ticket.paymentStatus === 'PAID') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ success: true, ticket: { ...ticket, name: ticket.buyerName } }));
+    }
+
+    try {
+      const session = await stripeRequest('GET', `/v1/checkout/sessions/${sessionId}`, {}, '2026-02-25.preview');
+      if (session.payment_status === 'paid') {
+        const pending = db.pendingSessions[sessionId] || {
+          ticketId: 'SLB-' + crypto.randomBytes(6).toString('hex').toUpperCase(),
+          buyerName: session.customer_details?.name || 'Customer',
+          buyerEmail: session.customer_details?.email || '',
+          tier: 'Hamlet (e-book)',
+          price: 10,
+        };
+
+        if (!ticket) {
+          ticket = {
+            ...pending,
+            paymentStatus: 'PAID',
+            paidAt: new Date().toISOString(),
+            stripeSessionId: sessionId,
+            method: 'CARD',
+          };
+          db.tickets.push(ticket);
+          delete db.pendingSessions[sessionId];
+          saveDB(db);
+        } else {
+          ticket.paymentStatus = 'PAID';
+          ticket.paidAt = new Date().toISOString();
+          saveDB(db);
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ success: true, ticket: { ...ticket, name: ticket.buyerName } }));
+      } else {
+        res.writeHead(402, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Payment has not been completed.' }));
+      }
+    } catch (err) {
+      console.error('[STRIPE ERROR] verify-payment:', err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: err.message || 'Error verifying payment.' }));
     }
   }
 
