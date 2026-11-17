@@ -1549,15 +1549,15 @@
         <div class="event-meta-cards">
           <div class="meta-box">
             <div class="meta-label">📅 Date</div>
-            <div class="meta-value">NOV 25TH, 2026</div>
+            <div class="meta-value">JAN 9TH, 2026</div>
+          </div>
+          <div class="meta-box">
+            <div class="meta-label">⏰ Doors Open</div>
+            <div class="meta-value">9:00 PM PST</div>
           </div>
           <div class="meta-box">
             <div class="meta-label">🎺 Live Music</div>
             <div class="meta-value">La Tormentosa</div>
-          </div>
-          <div class="meta-box">
-            <div class="meta-label">Admission</div>
-            <div class="meta-value" id="heroPriceTag">$15 Tier 1</div>
           </div>
           <div class="meta-box">
             <div class="meta-label">🕊️ Memorial</div>
@@ -1565,9 +1565,9 @@
           </div>
         </div>
 
-        <!-- Live Countdown to November 25th -->
+        <!-- Live Countdown to January 9th -->
         <div class="countdown-wrapper">
-          <div class="countdown-title">⚡ Doors Open In</div>
+          <div class="countdown-title">⚡ Doors Open In (Jan 9th · 9:00 PM)</div>
           <div class="countdown-timer">
             <div class="time-unit">
               <div class="time-num" id="cdDays">00</div>
@@ -1936,7 +1936,7 @@
 
       <div class="pass-body">
         <h3 class="pass-event-title">Official Admission Pass</h3>
-        <p class="pass-event-date">Wednesday, November 25th, 2026 · Sigma Gamma Chapter</p>
+        <p class="pass-event-date">Friday, January 9th, 2026 · Doors Open 9:00 PM · Sigma Gamma Chapter</p>
 
         <!-- Venmo Notice Banner (shown if method is Venmo) -->
         <div id="passVenmoNotice" style="display:none; background:rgba(0, 140, 255, 0.14); border:1px solid rgba(0, 140, 255, 0.45); border-radius:14px; padding:0.9rem 1.1rem; margin-bottom:1.25rem; font-size:0.85rem; color:#bae6fd; text-align:left; line-height:1.45;">
@@ -2052,15 +2052,17 @@
     }
 
     // ════════════════════════════════════════════════════════════════
-    // COUNTDOWN TIMER TO NOVEMBER 25TH, 2026
+    // COUNTDOWN TIMER TO JANUARY 9TH, 2026 (9:00 PM PST)
     // ════════════════════════════════════════════════════════════════
     function updateCountdown() {
-      const eventDate = new Date('2026-11-25T20:00:00-08:00').getTime();
+      let eventDate = new Date('2026-01-09T21:00:00-08:00').getTime();
       const now = new Date().getTime();
+      if (now > eventDate) {
+        eventDate = new Date(`${new Date().getFullYear() + 1}-01-09T21:00:00-08:00`).getTime();
+      }
       let diff = eventDate - now;
 
       if (diff < 0) {
-        // Event has arrived or recurring placeholder
         diff = 0;
       }
 

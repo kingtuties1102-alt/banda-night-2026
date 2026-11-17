@@ -566,8 +566,8 @@ function buildReceiptHtml(ticket, config = {}, baseUrl = 'https://banda-night-20
                 <div style="font-weight:700; color:#ffffff; font-size:14px; margin-bottom:6px;">
                   📍 Event Details & Guidelines:
                 </div>
-                • <strong>Date:</strong> Wednesday, November 25th, 2026<br>
-                • <strong>Time:</strong> Doors Open at 8:00 PM PST<br>
+                • <strong>Date:</strong> Friday, January 9th, 2026<br>
+                • <strong>Time:</strong> Doors Open at 9:00 PM PST<br>
                 • <strong>Featuring Live Banda:</strong> "La Tormentosa"<br>
                 • <strong>Food:</strong> Authentic Mexican Tacos on sale all night!<br>
                 • <strong>Requirements:</strong> Physical Gov/Student ID required at entrance (18+ to enter, 21+ to drink).<br>
@@ -638,8 +638,8 @@ VIEW YOUR DIGITAL PASS ONLINE:
 ${ticketPassUrl}
 
 EVENT LOGISTICS:
-- Date: Wednesday, November 25th, 2026
-- Doors Open: 8:00 PM PST
+- Date: Friday, January 9th, 2026
+- Doors Open: 9:00 PM PST
 - Featuring: Live Banda "La Tormentosa"
 - Requirements: Physical Gov/Student ID required for entry (18+ to enter, 21+ to drink).
 - ${isPaid ? 'Show your unique QR code at the door for entry.' : 'NOTE: Your entry QR code is currently locked pending Venmo payment verification.'}

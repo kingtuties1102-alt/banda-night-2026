@@ -111,7 +111,7 @@ function buildSmsBody(ticket, config = {}, baseUrl = 'https://banda-night-2026-1
     `🎺 Banda Night 2026 — Hi ${ticket.buyerName.split(' ')[0]}!\n` +
     `Ticket confirmed ✅ | ID: ${ticket.ticketId}\n` +
     `Tier: ${ticket.tier} · $${ticket.price}\n` +
-    `📅 Nov 25, 2026 · Doors 8PM PST\n` +
+    `📅 Friday, Jan 9, 2026 · Doors 9PM PST\n` +
     `🎟 View your QR pass: ${passUrl}`
   );
 }
