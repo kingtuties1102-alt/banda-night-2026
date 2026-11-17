@@ -538,20 +538,22 @@
 
     <!-- Provider Selection -->
     <div class="email-provider-tabs">
-      <button class="provider-tab-btn active" id="tabResend" onclick="setProviderTab('resend')">⚡ Resend API (Recommended)</button>
+      <button class="provider-tab-btn active" id="tabResend" onclick="setProviderTab('resend')">⚡ Resend / SendGrid API (Recommended)</button>
       <button class="provider-tab-btn" id="tabSmtp" onclick="setProviderTab('smtp')">✉️ Gmail / Custom SMTP</button>
     </div>
 
-    <!-- Resend Config -->
+    <!-- Resend / SendGrid Config -->
     <div id="resendConfigSection">
       <div class="email-field-row">
         <div class="email-field" style="grid-column:span 2;">
-          <label>Resend API Key (re_...)</label>
-          <input type="password" id="resendApiKeyInput" placeholder="re_1234567890abcdef..." autocomplete="off">
+          <label>Email API Key (SendGrid "SG...." or Resend "re_...")</label>
+          <input type="password" id="resendApiKeyInput" placeholder="SG.xxxx... or re_xxxx..." autocomplete="off">
+          <small style="color: #64748b; font-size: 0.72rem; margin-top: 4px; display: block;">SendGrid keys start with <code>SG.</code> (delivers to all domains). Resend keys start with <code>re_</code>.</small>
         </div>
         <div class="email-field">
           <label>Sender From Address</label>
-          <input type="text" id="resendFromInput" placeholder="Sigma Lambda Beta <onboarding@resend.dev>">
+          <input type="text" id="resendFromInput" placeholder="Sigma Lambda Beta <tuties1102@icloud.com>">
+          <small style="color: #64748b; font-size: 0.72rem; margin-top: 4px; display: block;">SendGrid: Use verified sender (e.g. tuties1102@icloud.com). Resend: use onboarding@resend.dev or verified domain.</small>
         </div>
       </div>
     </div>
@@ -828,8 +830,14 @@
             const em = cfgData.email;
             const badge = document.getElementById('emailActiveBadge');
             
-            if (em.resendApiKey) {
+            if (em.apiKeyType === 'sendgrid' || (em.resendApiKey && em.resendApiKey.startsWith('SG.'))) {
+              badge.textContent = '🟢 SendGrid API Active';
+              badge.className = 'badge badge-paid';
+            } else if (em.apiKeyType === 'resend' || (em.resendApiKey && em.resendApiKey.startsWith('re_'))) {
               badge.textContent = '🟢 Resend API Active';
+              badge.className = 'badge badge-paid';
+            } else if (em.resendApiKey) {
+              badge.textContent = '🟢 Email API Active';
               badge.className = 'badge badge-paid';
             } else if (em.smtpHost) {
               badge.textContent = `🟢 SMTP Active (${em.smtpHost})`;

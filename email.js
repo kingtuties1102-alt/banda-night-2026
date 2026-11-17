@@ -71,12 +71,34 @@ function sendViaResend({ apiKey, from, to, subject, html, text }) {
  */
 function sendViaSendgrid({ apiKey, from, to, subject, html, text }) {
   return new Promise((resolve, reject) => {
-    const fromEmail = from || 'tickets@sigmagamma.org';
+    let fromEmail = from || 'tuties1102@icloud.com';
+    let fromName = 'Sigma Lambda Beta - Banda Night';
+
+    const matchWithName = fromEmail.match(/^([^<]+)<([^>]+)>$/);
+    if (matchWithName) {
+      fromName = matchWithName[1].trim() || fromName;
+      fromEmail = matchWithName[2].trim();
+    } else {
+      const emailMatch = fromEmail.match(/<([^>]+)>/);
+      if (emailMatch) {
+        fromEmail = emailMatch[1].trim();
+      }
+    }
+    fromEmail = fromEmail.trim();
+
+    // SendGrid requires a sender address that is verified in SendGrid.
+    // If fromEmail is blank, an unverified template domain, or resend.dev, default to tuties1102@icloud.com
+    if (!fromEmail || fromEmail.includes('resend.dev') || fromEmail.includes('example.com') || fromEmail.includes('sigmagamma.org')) {
+      fromEmail = 'tuties1102@icloud.com';
+    }
+
     const payload = JSON.stringify({
       personalizations: [{ to: [{ email: to }] }],
-      from: { email: fromEmail, name: 'Sigma Lambda Beta - Banda Night' },
+      from: { email: fromEmail, name: fromName },
+      reply_to: { email: fromEmail, name: fromName },
       subject,
       content: [
+        { type: 'text/plain', value: text || 'Banda Night 2026 Ticket Receipt' },
         { type: 'text/html', value: html },
       ],
     });
@@ -320,47 +342,43 @@ function sendViaSmtp({ host, port, user, pass, from, to, subject, html, text }) 
  * Dispatch an email using the active configuration
  */
 async function sendEmail({ to, subject, html, text, config = {} }) {
-  const resendKey = config.resendApiKey || process.env.RESEND_API_KEY;
-  const sendgridKey = config.sendgridApiKey || process.env.SENDGRID_API_KEY;
+  const rawKey = (config.resendApiKey || config.sendgridApiKey || process.env.RESEND_API_KEY || process.env.SENDGRID_API_KEY || '').trim();
+  const isSendGrid = rawKey.startsWith('SG.');
+  const isResend = rawKey.startsWith('re_');
   const smtpHost = config.smtpHost || process.env.SMTP_HOST;
-  const fromEmail = config.fromEmail || process.env.FROM_EMAIL || 'tickets@sigmagamma.org';
+  const fromEmail = (config.fromEmail || process.env.FROM_EMAIL || 'tuties1102@icloud.com').trim();
 
-  // 1. Resend API
-  if (resendKey) {
-    try {
-      return await sendViaResend({
-        apiKey: resendKey,
-        from: config.fromEmail || process.env.FROM_EMAIL,
-        to,
-        subject,
-        html,
-        text,
-      });
-    } catch (err) {
-      console.warn('Resend attempt failed, falling back if configured:', err.message);
-      if (!smtpHost && !sendgridKey) throw err;
-    }
+  // 1. SendGrid API (Auto-detected if key starts with SG.)
+  if (isSendGrid || config.sendgridApiKey || process.env.SENDGRID_API_KEY) {
+    const key = isSendGrid ? rawKey : (config.sendgridApiKey || process.env.SENDGRID_API_KEY);
+    return await sendViaSendgrid({
+      apiKey: key,
+      from: fromEmail,
+      to,
+      subject,
+      html,
+      text,
+    });
   }
 
-  // 2. SendGrid API
-  if (sendgridKey) {
-    try {
-      return await sendViaSendgrid({
-        apiKey: sendgridKey,
-        from: fromEmail,
-        to,
-        subject,
-        html,
-        text,
-      });
-    } catch (err) {
-      console.warn('SendGrid attempt failed, falling back if configured:', err.message);
-      if (!smtpHost) throw err;
-    }
+  // 2. Resend API
+  if (isResend || (rawKey && !smtpHost)) {
+    const key = isResend ? rawKey : (config.resendApiKey || process.env.RESEND_API_KEY);
+    const fromAddr = (fromEmail && !fromEmail.includes('@icloud.com') && !fromEmail.includes('@gmail.com'))
+      ? fromEmail
+      : 'Sigma Lambda Beta <onboarding@resend.dev>';
+    return await sendViaResend({
+      apiKey: key,
+      from: fromAddr,
+      to,
+      subject,
+      html,
+      text,
+    });
   }
 
-  // 3. SMTP (Gmail or custom server)
-  if (smtpHost) {
+  // 3. SMTP (Gmail or custom server, used only if no API key is provided)
+  if (smtpHost && !isSendGrid && !isResend) {
     const smtpPort = config.smtpPort || process.env.SMTP_PORT || 465;
     const smtpUser = config.smtpUser || process.env.SMTP_USER;
     const smtpPass = config.smtpPass || process.env.SMTP_PASS;

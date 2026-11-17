@@ -957,8 +957,9 @@ const server = http.createServer(async (req, res) => {
       venmoUsername: venmoUser,
       adminPinConfigured: Boolean(db.config?.adminPin || process.env.ADMIN_PIN),
       email: {
-        provider: emailConfig.provider || (emailConfig.resendApiKey ? 'resend' : (emailConfig.smtpHost ? 'smtp' : 'simulated')),
+        provider: emailConfig.provider || (emailConfig.resendApiKey ? (emailConfig.resendApiKey.startsWith('SG.') ? 'sendgrid' : 'resend') : (emailConfig.smtpHost ? 'smtp' : 'simulated')),
         resendApiKey: emailConfig.resendApiKey ? '••••••••' + emailConfig.resendApiKey.slice(-4) : '',
+        apiKeyType: emailConfig.resendApiKey ? (emailConfig.resendApiKey.startsWith('SG.') ? 'sendgrid' : (emailConfig.resendApiKey.startsWith('re_') ? 'resend' : 'other')) : '',
         smtpHost: emailConfig.smtpHost || '',
         smtpPort: emailConfig.smtpPort || 465,
         smtpUser: emailConfig.smtpUser || '',
