@@ -514,15 +514,26 @@ const server = http.createServer(async (req, res) => {
     }
 
     try {
-      const session = await stripeRequest('GET', `/v1/checkout/sessions/${sessionId}`, {}, '2026-02-25.preview');
+      const session = await stripeRequest('GET', `/v1/checkout/sessions/${sessionId}`, {});
       if (session.payment_status === 'paid') {
+        const curTier = getCurrentTierInfo(db).currentTier;
         const pending = db.pendingSessions[sessionId] || {
           ticketId: 'SLB-' + crypto.randomBytes(6).toString('hex').toUpperCase(),
-          buyerName: session.customer_details?.name || 'Customer',
+          buyerName: session.customer_details?.name || 'Attendee',
           buyerEmail: session.customer_details?.email || '',
-          tier: 'Hamlet (e-book)',
-          price: 10,
+          tier: curTier.name,
+          price: curTier.price,
         };
+
+        let cardBrand = '';
+        let cardLast4 = '';
+        if (session.payment_intent) {
+          try {
+            const pi = await stripeRequest('GET', `/v1/payment_intents/${session.payment_intent}?expand[]=payment_method`, {});
+            cardBrand = pi.payment_method?.card?.brand || '';
+            cardLast4 = pi.payment_method?.card?.last4 || '';
+          } catch (_) {}
+        }
 
         if (!ticket) {
           ticket = {
@@ -530,11 +541,22 @@ const server = http.createServer(async (req, res) => {
             paymentStatus: 'PAID',
             paidAt: new Date().toISOString(),
             stripeSessionId: sessionId,
+            cardBrand: cardBrand || pending.cardBrand || '',
+            cardLast4: cardLast4 || pending.cardLast4 || '',
             method: 'CARD',
           };
           db.tickets.push(ticket);
           delete db.pendingSessions[sessionId];
           saveDB(db);
+
+          // Dispatch ticket receipt email
+          const emailConfig = db.config?.email || {};
+          sendTicketReceipt(ticket, {
+            ...emailConfig,
+            venmoUsername: db.config?.venmoUsername || VENMO_USERNAME,
+          }, BASE_URL)
+            .then(r => { ticket.emailStatus = r.simulated ? 'SIMULATED' : 'SENT'; ticket.emailSentAt = new Date().toISOString(); saveDB(db); })
+            .catch(e => { ticket.emailStatus = 'FAILED'; ticket.emailError = e.message; saveDB(db); });
         } else {
           ticket.paymentStatus = 'PAID';
           ticket.paidAt = new Date().toISOString();
