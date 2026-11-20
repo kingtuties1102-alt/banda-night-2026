@@ -2582,7 +2582,7 @@
     // On load, check if Stripe is configured and show the right card form
     (async function detectStripe() {
       try {
-        const res = await fetch('/api/config');
+        const res = await fetch('/api/tier');
         const cfg = await res.json();
         stripeConfigured = Boolean(cfg.stripeConfigured && cfg.stripePublishableKey);
         if (stripeConfigured) {
