@@ -104,39 +104,23 @@ function stripeRequest(method, path, body, apiVersion) {
  * Caches the returned default_price ID in db.config.stripePrices[tierName].
  */
 /**
- * Create a digital one-time product with eligible tax code (Managed Payments flow).
- * Blueprint: create-product-chapter / create-one-time-product
- *   Endpoint: POST /v1/products
- *   api_version: 2026-02-25.preview
- *   name: 'Hamlet (e-book)'
- *   tax_code: 'txcd_10103100'
- *   default_price_data: { currency: 'usd', unit_amount: 1000 }
+ * Create or retrieve a Stripe Product for a given tier.
+ * Uses inline price_data per checkout session so each tier has the correct price.
  */
-async function createOneTimeProduct() {
-  const db = loadDB();
-  if (db.config?.stripeProduct?.default_price) {
-    return db.config.stripeProduct;
-  }
-
-  const product = await stripeRequest('POST', '/v1/products', {
-    name: 'Hamlet (e-book)',
-    tax_code: 'txcd_10103100',
-    default_price_data: {
+async function getStripeLineItem(tierName, priceInDollars) {
+  // Use inline price_data so each tier gets the correct price dynamically
+  return {
+    price_data: {
       currency: 'usd',
-      unit_amount: 1000,
+      unit_amount: Math.round(priceInDollars * 100), // Convert dollars to cents
+      product_data: {
+        name: `Banda Night 2026 — ${tierName} Admission`,
+        description: 'Sigma Lambda Beta · Sigma Gamma Chapter · January 9th, 2026 · Doors 9:00 PM PST',
+        tax_code: 'txcd_10103100',
+      },
     },
-  }, '2026-02-25.preview');
-
-  if (!db.config) db.config = {};
-  db.config.stripeProduct = {
-    id: product.id,
-    default_price: product.default_price,
-    name: product.name,
-    tax_code: product.tax_code,
+    quantity: 1,
   };
-  saveDB(db);
-  console.log(`[STRIPE] Created digital product: ${product.name} (${product.id}), default_price: ${product.default_price}`);
-  return db.config.stripeProduct;
 }
 
 /**
@@ -376,7 +360,7 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  // --- API: Create Stripe Checkout Session (Blueprint: create-checkout-session-chapter) ---
+  // --- API: Create Stripe Checkout Session ---
   if ((pathname === '/api/create-checkout-session' || pathname === '/create-checkout-session') && req.method === 'POST') {
     const db_chk = loadDB();
     if (!getStripeConfig(db_chk).configured) {
@@ -388,12 +372,11 @@ const server = http.createServer(async (req, res) => {
     const db = loadDB();
 
     try {
-      // 1. Retrieve or create digital product to obtain default_price
-      let priceId = body.price || body.priceId;
-      if (!priceId) {
-        const product = await createOneTimeProduct();
-        priceId = product.default_price;
-      }
+      // 1. Get current tier info and price
+      const tierInfo = getCurrentTierInfo(db);
+      const currentTier = tierInfo.currentTier;
+      const tierPrice = currentTier.price; // e.g. 15, 20, 25
+      const tierName = currentTier.name;   // e.g. "Early Bird"
 
       const ticketId = body.ticketId || ('SLB-' + crypto.randomBytes(6).toString('hex').toUpperCase());
       const securityToken = crypto.randomBytes(16).toString('hex');
@@ -401,16 +384,13 @@ const server = http.createServer(async (req, res) => {
       const buyerEmail = (body.email || body.buyerEmail || body.customer_email || 'attendee@example.com').trim().toLowerCase();
       const buyerPhone = (body.phone || body.buyerPhone || '').trim();
 
-      // 2. Create hosted Checkout Session with Managed Payments enabled
-      // API Version: 2026-02-25.preview
-      // mode: payment
-      // managed_payments[enabled]: true
-      // line_items: [{ price: default_price, quantity: 1 }]
-      // success_url: application_url
+      // 2. Build line item with correct tier name and price
+      const lineItem = await getStripeLineItem(tierName, tierPrice);
+
+      // 3. Create hosted Checkout Session
       const sessionParams = {
         mode: 'payment',
-        'managed_payments[enabled]': 'true',
-        line_items: [{ price: priceId, quantity: 1 }],
+        line_items: [lineItem],
         success_url: `${BASE_URL}/success.html?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${BASE_URL}/#tickets`,
       };
@@ -419,9 +399,9 @@ const server = http.createServer(async (req, res) => {
         sessionParams.customer_email = buyerEmail;
       }
 
-      const session = await stripeRequest('POST', '/v1/checkout/sessions', sessionParams, '2026-02-25.preview');
+      const session = await stripeRequest('POST', '/v1/checkout/sessions', sessionParams);
 
-      // Persist pending ticket keyed by Stripe session ID in datastore
+      // 4. Persist pending ticket keyed by Stripe session ID
       if (!db.pendingSessions) db.pendingSessions = {};
       db.pendingSessions[session.id] = {
         ticketId,
@@ -429,8 +409,8 @@ const server = http.createServer(async (req, res) => {
         buyerName,
         buyerEmail,
         buyerPhone,
-        tier: body.tier || 'Hamlet (e-book)',
-        price: 10,
+        tier: tierName,
+        price: tierPrice,
         purchasedAt: new Date().toISOString(),
         checkedIn: false,
         checkedInAt: null,
