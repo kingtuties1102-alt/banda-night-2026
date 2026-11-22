@@ -2,6 +2,7 @@
   "tickets": [],
   "pendingSessions": {},
   "config": {
-    "venmoUsername": "Betas_UCSB"
+    "venmoUsername": "Betas_UCSB",
+    "siteLocked": true
   }
 }

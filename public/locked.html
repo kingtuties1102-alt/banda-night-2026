@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Banda Night 2026 — Tickets Opening Soon | Sigma Lambda Beta</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Playfair+Display:ital,wght@1,600;1,700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #05010a;
+      --card-bg: rgba(18, 6, 36, 0.85);
+      --purple-neon: #a855f7;
+      --purple-glow: rgba(168, 85, 247, 0.45);
+      --silver: #e2e8f0;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg-dark);
+      color: #ffffff;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Ambient Nocturne Glows */
+    .glow-1 {
+      position: fixed;
+      top: -15%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 700px;
+      height: 700px;
+      background: radial-gradient(circle, rgba(147, 51, 234, 0.28) 0%, rgba(217, 70, 239, 0.08) 50%, transparent 75%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .glow-2 {
+      position: fixed;
+      bottom: -20%;
+      right: -10%;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(168, 85, 247, 0.18) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .lock-card {
+      position: relative;
+      z-index: 10;
+      max-width: 620px;
+      width: 100%;
+      background: linear-gradient(160deg, rgba(22, 7, 44, 0.92) 0%, rgba(12, 3, 26, 0.96) 60%, rgba(6, 1, 14, 0.98) 100%);
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      border-radius: 28px;
+      padding: 3rem 2.25rem;
+      text-align: center;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85), 0 0 50px rgba(168, 85, 247, 0.25);
+      backdrop-filter: blur(16px);
+    }
+
+    .lock-icon-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 74px;
+      height: 74px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #a855f7, #6b21a8);
+      box-shadow: 0 0 35px rgba(168, 85, 247, 0.6);
+      margin-bottom: 1.5rem;
+      font-size: 2.2rem;
+    }
+
+    .chapter-tag {
+      font-family: 'Cinzel', serif;
+      font-size: 0.82rem;
+      letter-spacing: 3px;
+      color: #c084fc;
+      text-transform: uppercase;
+      margin-bottom: 0.6rem;
+      font-weight: 700;
+    }
+
+    .lock-title {
+      font-family: 'Cinzel', serif;
+      font-size: 2.4rem;
+      font-weight: 900;
+      color: #ffffff;
+      line-height: 1.15;
+      margin-bottom: 0.35rem;
+      text-shadow: 0 0 30px rgba(168, 85, 247, 0.45);
+    }
+
+    .lock-subtitle {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      font-size: 1.35rem;
+      color: #e879f9;
+      margin-bottom: 1.5rem;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(239, 68, 68, 0.14);
+      border: 1px solid rgba(239, 68, 68, 0.45);
+      color: #fca5a5;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 0.45rem 1.15rem;
+      border-radius: 50px;
+      margin-bottom: 1.75rem;
+    }
+
+    .status-pill span.pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ef4444;
+      box-shadow: 0 0 10px #ef4444;
+      animation: pulse 1.8s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.3); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    .lock-desc {
+      font-size: 0.96rem;
+      color: #cbd5e1;
+      line-height: 1.6;
+      margin-bottom: 2rem;
+    }
+
+    /* Event Details Quick Box */
+    .event-info-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(168, 85, 247, 0.22);
+      border-radius: 16px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 2rem;
+      text-align: left;
+      font-size: 0.88rem;
+      line-height: 1.65;
+      color: #d8b4fe;
+    }
+
+    .event-info-box strong {
+      color: #ffffff;
+    }
+
+    .actions-row {
+      display: flex;
+      gap: 0.85rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.85rem 1.6rem;
+      border-radius: 12px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-ig {
+      background: linear-gradient(135deg, #9333ea, #d946ef);
+      color: #ffffff;
+      box-shadow: 0 4px 20px rgba(168, 85, 247, 0.45);
+      border: none;
+    }
+    .btn-ig:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 28px rgba(168, 85, 247, 0.65);
+    }
+
+    .btn-organizer {
+      background: rgba(255, 255, 255, 0.05);
+      color: #c084fc;
+      border: 1px solid rgba(168, 85, 247, 0.35);
+    }
+    .btn-organizer:hover {
+      background: rgba(168, 85, 247, 0.15);
+      border-color: #c084fc;
+    }
+
+    .memorial-note {
+      font-size: 0.78rem;
+      color: #94a3b8;
+      margin-top: 1.75rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 1.2rem;
+    }
+
+    /* Passcode Modal */
+    #organizerModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .modal-box {
+      background: #0f0420;
+      border: 2px solid #a855f7;
+      border-radius: 20px;
+      padding: 2.2rem 1.75rem;
+      max-width: 380px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.9), 0 0 40px rgba(168,85,247,0.4);
+    }
+    .modal-box input {
+      width: 100%;
+      padding: 0.85rem;
+      background: rgba(0,0,0,0.6);
+      border: 1px solid #a855f7;
+      border-radius: 10px;
+      color: white;
+      text-align: center;
+      font-size: 1.1rem;
+      letter-spacing: 2px;
+      margin: 1.2rem 0;
+      outline: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="glow-1"></div>
+  <div class="glow-2"></div>
+
+  <div class="lock-card">
+    <div class="lock-icon-badge">🔒</div>
+
+    <div class="chapter-tag">Sigma Lambda Beta · Sigma Gamma Chapter</div>
+    <h1 class="lock-title">Banda Night 2026</h1>
+    <div class="lock-subtitle">Una Noche Inolvidable</div>
+
+    <div class="status-pill">
+      <span class="pulse-dot"></span>
+      <span>Ticket Sales Currently Paused</span>
+    </div>
+
+    <p class="lock-desc">
+      The official ticketing website is currently locked while organizers finalize details. Ticket sales are paused until further notice. Stay tuned for announcements!
+    </p>
+
+    <div class="event-info-box">
+      <div>📅 <strong>Event Date:</strong> Friday, January 9th, 2026</div>
+      <div>⏰ <strong>Doors Open:</strong> 9:00 PM PST</div>
+      <div>🎺 <strong>Live Banda:</strong> "La Tormentosa"</div>
+      <div>🕊️ <strong>Memorial:</strong> In Honor of Brother Hector "Hermes" Serrano</div>
+      <div>🎟️ <strong>Admission:</strong> Tier 1 Early Bird starts at $15.00</div>
+    </div>
+
+    <div class="actions-row">
+      <a href="https://instagram.com/ucsbbetas" target="_blank" class="btn-action btn-ig">
+        <span>📸 Follow @ucsbbetas on Instagram</span>
+      </a>
+      <button onclick="showOrganizerPrompt()" class="btn-action btn-organizer">
+        <span>🔐 Organizer Access</span>
+      </button>
+    </div>
+
+    <div class="memorial-note">
+      💜 Proceeds proudly support the <strong>Vamos a Volar Scholarship Fund</strong>.
+    </div>
+  </div>
+
+  <!-- Organizer Unlock Modal -->
+  <div id="organizerModal">
+    <div class="modal-box">
+      <h3 style="font-family:'Cinzel',serif; font-size:1.3rem; margin-bottom:0.5rem; color:#ffffff;">Organizer Access</h3>
+      <p style="font-size:0.82rem; color:#94a3b8;">Enter the chapter passcode to preview the site or access dashboard.</p>
+      <input type="password" id="organizerPasscodeInput" placeholder="Passcode" autofocus onkeydown="if(event.key==='Enter') submitPasscode()">
+      <div id="passcodeErr" style="color:#ef4444; font-size:0.8rem; margin-bottom:0.75rem; display:none;">Incorrect passcode</div>
+      <div style="display:flex; gap:0.5rem;">
+        <button onclick="submitPasscode()" style="flex:1; padding:0.75rem; background:linear-gradient(135deg,#9333ea,#d946ef); border:none; border-radius:8px; color:white; font-weight:700; cursor:pointer;">Enter</button>
+        <button onclick="closeOrganizerPrompt()" style="padding:0.75rem 1rem; background:rgba(255,255,255,0.08); border:none; border-radius:8px; color:#cbd5e1; cursor:pointer;">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showOrganizerPrompt() {
+      document.getElementById('organizerModal').style.display = 'flex';
+      document.getElementById('organizerPasscodeInput').focus();
+    }
+    function closeOrganizerPrompt() {
+      document.getElementById('organizerModal').style.display = 'none';
+      document.getElementById('passcodeErr').style.display = 'none';
+      document.getElementById('organizerPasscodeInput').value = '';
+    }
+    function submitPasscode() {
+      const code = document.getElementById('organizerPasscodeInput').value.trim();
+      if (!code) return;
+      // Check passcode against server via test PIN or direct preview redirect
+      if (code === 'betas1986') {
+        document.cookie = "slb_preview=" + encodeURIComponent(code) + "; path=/; max-age=86400";
+        sessionStorage.setItem('slb_admin_pin', code);
+        window.location.href = '/?preview=' + encodeURIComponent(code);
+      } else {
+        document.getElementById('passcodeErr').style.display = 'block';
+      }
+    }
+  </script>
+
+</body>
+</html>

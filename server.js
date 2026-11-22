@@ -315,6 +315,28 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
 
+  // --- SITE LOCK / MAINTENANCE MODE HELPERS ---
+  function isSiteLocked(db) {
+    if (process.env.SITE_LOCKED === 'false') return false;
+    if (process.env.SITE_LOCKED === 'true') return true;
+    return db?.config?.siteLocked !== false;
+  }
+
+  function hasPreviewAccess(req, url, db) {
+    const activePin = (process.env.ADMIN_PIN || db?.config?.adminPin || 'betas1986').trim();
+    const previewParam = (url.searchParams.get('preview') || '').trim();
+    if (previewParam && previewParam === activePin) return true;
+
+    const headerPin = (req.headers['x-admin-pin'] || '').trim();
+    if (headerPin && headerPin === activePin) return true;
+
+    const cookieHeader = req.headers.cookie || '';
+    const match = cookieHeader.match(/slb_preview=([^;]+)/);
+    if (match && decodeURIComponent(match[1].trim()) === activePin) return true;
+
+    return false;
+  }
+
   // Helper to verify admin authorization header
   function checkAdminAuth(req) {
     const db = loadDB();
@@ -331,6 +353,7 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({
       ...info,
+      siteLocked: isSiteLocked(db),
       venmoUsername: venmoUser,
       venmoConfigured: Boolean(venmoUser && venmoUser !== 'YOUR-VENMO-USERNAME'),
       stripeConfigured: getStripeConfig(db).configured,
@@ -363,6 +386,10 @@ const server = http.createServer(async (req, res) => {
   // --- API: Create Stripe Checkout Session ---
   if ((pathname === '/api/create-checkout-session' || pathname === '/create-checkout-session') && req.method === 'POST') {
     const db_chk = loadDB();
+    if (isSiteLocked(db_chk) && !hasPreviewAccess(req, url, db_chk)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Ticket sales are currently paused. Please check back soon!' }));
+    }
     if (!getStripeConfig(db_chk).configured) {
       res.writeHead(503, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ error: 'Stripe is not configured. Set STRIPE_SECRET_KEY.' }));
@@ -661,6 +688,11 @@ const server = http.createServer(async (req, res) => {
 
   // --- API: Purchase (supports both card and Venmo) ---
   if (pathname === '/api/purchase' && req.method === 'POST') {
+    const db_chk = loadDB();
+    if (isSiteLocked(db_chk) && !hasPreviewAccess(req, url, db_chk)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Ticket sales are currently paused. Please check back soon!' }));
+    }
     const body = await parseBody(req);
     const { name, email, phone, paymentMethod, cardNumber, cardExp, cardCvc, zip } = body;
 
@@ -956,6 +988,7 @@ const server = http.createServer(async (req, res) => {
     const twilioConfig = db.config?.twilio || {};
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({
+      siteLocked: isSiteLocked(db),
       venmoUsername: venmoUser,
       adminPinConfigured: Boolean(db.config?.adminPin || process.env.ADMIN_PIN),
       email: {
@@ -986,6 +1019,9 @@ const server = http.createServer(async (req, res) => {
     const body = await parseBody(req);
     const db = loadDB();
     if (!db.config) db.config = {};
+    if (typeof body.siteLocked === 'boolean') {
+      db.config.siteLocked = body.siteLocked;
+    }
     if (typeof body.venmoUsername === 'string') {
       const clean = body.venmoUsername.trim().replace(/^@/, '');
       db.config.venmoUsername = clean;
@@ -1040,6 +1076,23 @@ const server = http.createServer(async (req, res) => {
       success: true,
       config: db.config,
     }));
+  }
+
+  // --- API: Toggle Public Website Lock ---
+  if (pathname === '/api/admin/toggle-lock' && req.method === 'POST') {
+    if (!checkAdminAuth(req)) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Unauthorized.' }));
+    }
+    const body = await parseBody(req);
+    const db = loadDB();
+    if (!db.config) db.config = {};
+    const current = isSiteLocked(db);
+    const nextState = typeof body.locked === 'boolean' ? body.locked : !current;
+    db.config.siteLocked = nextState;
+    saveDB(db);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ success: true, siteLocked: nextState }));
   }
 
   // --- API: Admin Send Test Email ---
@@ -1276,6 +1329,13 @@ const server = http.createServer(async (req, res) => {
 
   // --- Serve Static Assets ---
   let filePath = pathname === '/' ? '/index.html' : pathname;
+
+  // Intercept root page when public website is locked
+  const db_static = loadDB();
+  if (isSiteLocked(db_static) && (filePath === '/index.html' || pathname === '/') && !hasPreviewAccess(req, url, db_static)) {
+    filePath = '/locked.html';
+  }
+
   filePath = path.join(PUBLIC_DIR, filePath);
 
   if (!filePath.startsWith(PUBLIC_DIR)) {
