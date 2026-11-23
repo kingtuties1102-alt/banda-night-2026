@@ -1,5 +1,5 @@
 /**
- * Banda Night 2026 - Email Receipt System
+ * Banda Night 2027 - Email Receipt System
  * Zero external dependencies (pure Node.js standard library: tls, net, https)
  * 
  * Supports:
@@ -98,7 +98,7 @@ function sendViaSendgrid({ apiKey, from, to, subject, html, text }) {
       reply_to: { email: fromEmail, name: fromName },
       subject,
       content: [
-        { type: 'text/plain', value: text || 'Banda Night 2026 Ticket Receipt' },
+        { type: 'text/plain', value: text || 'Banda Night 2027 Ticket Receipt' },
         { type: 'text/html', value: html },
       ],
     });
@@ -422,7 +422,7 @@ function buildReceiptHtml(ticket, config = {}, baseUrl = 'https://banda-night-20
   
   const qrPayload = JSON.stringify({
     ticketId: ticket.ticketId,
-    event: 'Banda Night 2026 - Sigma Lambda Beta',
+    event: 'Banda Night 2027 - Sigma Lambda Beta',
     name: ticket.buyerName,
     tier: ticket.tier,
     price: ticket.price,
@@ -486,7 +486,7 @@ function buildReceiptHtml(ticket, config = {}, baseUrl = 'https://banda-night-20
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Your Ticket Receipt · Banda Night 2026</title>
+  <title>Your Ticket Receipt · Banda Night 2027</title>
 </head>
 <body style="margin:0; padding:0; background-color:#07020f; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#ffffff;">
   
@@ -505,7 +505,7 @@ function buildReceiptHtml(ticket, config = {}, baseUrl = 'https://banda-night-20
                 Sigma Lambda Beta International Fraternity Inc.
               </div>
               <h1 style="margin:0; font-size:24px; font-weight:900; letter-spacing:1px; color:#ffffff; text-transform:uppercase;">
-                🎺 Banda Night 2026
+                🎺 Banda Night 2027
               </h1>
               <div style="font-size:12px; font-weight:700; color:#f5d0fe; margin-top:4px;">
                 Sigma Gamma Chapter · Official Ticket Receipt
@@ -612,13 +612,13 @@ function buildReceiptText(ticket, config = {}, baseUrl = 'https://banda-night-20
   const ticketPassUrl = `${baseUrl}/ticket.html?id=${ticket.ticketId}`;
 
   return `
-SIGMA LAMBDA BETA - BANDA NIGHT 2026
+SIGMA LAMBDA BETA - BANDA NIGHT 2027
 Official Admission Ticket & Receipt
 ======================================================
 
 Hi ${ticket.buyerName || 'Attendee'},
 
-Thank you for your purchase! Here is your official ticket receipt for Banda Night 2026.
+Thank you for your purchase! Here is your official ticket receipt for Banda Night 2027.
 
 TICKET DETAILS:
 - Attendee: ${ticket.buyerName}
@@ -660,7 +660,7 @@ async function sendTicketReceipt(ticket, config = {}, baseUrl = 'https://banda-n
     throw new Error('Buyer email is missing; cannot send receipt.');
   }
 
-  const subject = `🎺 Your Ticket to Banda Night 2026 (${ticket.ticketId})`;
+  const subject = `🎺 Your Ticket to Banda Night 2027 (${ticket.ticketId})`;
   const html = buildReceiptHtml(ticket, config, baseUrl);
   const text = buildReceiptText(ticket, config, baseUrl);
 
@@ -691,7 +691,7 @@ async function sendTestEmail(toEmail, config = {}, baseUrl = 'https://banda-nigh
     securityToken: 'test-token-12345',
   };
 
-  const subject = `🧪 Test Email Receipt · Banda Night 2026`;
+  const subject = `🧪 Test Email Receipt · Banda Night 2027`;
   const html = buildReceiptHtml(sampleTicket, config, baseUrl);
   const text = buildReceiptText(sampleTicket, config, baseUrl);
 

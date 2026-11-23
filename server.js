@@ -114,7 +114,7 @@ async function getStripeLineItem(tierName, priceInDollars) {
       currency: 'usd',
       unit_amount: Math.round(priceInDollars * 100), // Convert dollars to cents
       product_data: {
-        name: `Banda Night 2026 — ${tierName} Admission`,
+        name: `Banda Night 2027 — ${tierName} Admission`,
         description: 'Sigma Lambda Beta · Sigma Gamma Chapter · Saturday, January 9th, 2027 · Doors 9:00 PM PST',
         tax_code: 'txcd_10103100',
       },
@@ -1362,7 +1362,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`\n🎺 BANDA NIGHT 2026 TICKET PLATFORM`);
+  console.log(`\n🎺 BANDA NIGHT 2027 TICKET PLATFORM`);
   console.log(`===============================================`);
   console.log(`✨ Main Event Page:   http://localhost:${PORT}`);
   console.log(`📊 Admin Dashboard:   http://localhost:${PORT}/admin.html`);

@@ -1,5 +1,5 @@
 /**
- * Banda Night 2026 - SMS Receipt System
+ * Banda Night 2027 - SMS Receipt System
  * Zero external dependencies (pure Node.js standard library: https)
  * Uses Twilio REST API to send text message receipts to attendees.
  *
@@ -98,7 +98,7 @@ function buildSmsBody(ticket, config = {}, baseUrl = 'https://banda-night-2026-1
 
   if (isVenmo && !isPaid) {
     return (
-      `🎺 Banda Night 2026 — Hi ${ticket.buyerName.split(' ')[0]}!\n` +
+      `🎺 Banda Night 2027 — Hi ${ticket.buyerName.split(' ')[0]}!\n` +
       `Ticket ID: ${ticket.ticketId} ($${ticket.price})\n` +
       `ACTION REQUIRED: Send $${ticket.price} on Venmo to @${venmoHandle}\n` +
       `Note: "Banda Night - ${ticket.ticketId}"\n` +
@@ -108,7 +108,7 @@ function buildSmsBody(ticket, config = {}, baseUrl = 'https://banda-night-2026-1
   }
 
   return (
-    `🎺 Banda Night 2026 — Hi ${ticket.buyerName.split(' ')[0]}!\n` +
+    `🎺 Banda Night 2027 — Hi ${ticket.buyerName.split(' ')[0]}!\n` +
     `Ticket confirmed ✅ | ID: ${ticket.ticketId}\n` +
     `Tier: ${ticket.tier} · $${ticket.price}\n` +
     `📅 Saturday, Jan 9, 2027 · Doors 9PM PST\n` +
@@ -157,7 +157,7 @@ async function sendTestSms(toPhone, config = {}) {
   }
 
   const body =
-    `✅ Banda Night 2026 — Test SMS from Sigma Lambda Beta.\n` +
+    `✅ Banda Night 2027 — Test SMS from Sigma Lambda Beta.\n` +
     `Twilio is configured correctly! Your attendees will receive receipts like this.`;
 
   return await sendViaTwilio({ accountSid, authToken, from: fromNumber, to: toNumber, body });
