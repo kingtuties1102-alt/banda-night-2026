@@ -566,7 +566,7 @@ function buildReceiptHtml(ticket, config = {}, baseUrl = 'https://banda-night-20
                 <div style="font-weight:700; color:#ffffff; font-size:14px; margin-bottom:6px;">
                   📍 Event Details & Guidelines:
                 </div>
-                • <strong>Date:</strong> Saturday, January 9th, 2026<br>
+                • <strong>Date:</strong> Saturday, January 9th, 2027<br>
                 • <strong>Time:</strong> Doors Open at 9:00 PM PST<br>
                 • <strong>Featuring Live Banda:</strong> "La Tormentosa"<br>
                 • <strong>Food:</strong> Authentic Mexican Tacos on sale all night!<br>
@@ -638,7 +638,7 @@ VIEW YOUR DIGITAL PASS ONLINE:
 ${ticketPassUrl}
 
 EVENT LOGISTICS:
-- Date: Saturday, January 9th, 2026
+- Date: Saturday, January 9th, 2027
 - Doors Open: 9:00 PM PST
 - Featuring: Live Banda "La Tormentosa"
 - Requirements: Physical Gov/Student ID required for entry (18+ to enter, 21+ to drink).

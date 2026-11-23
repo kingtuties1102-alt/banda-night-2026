@@ -1549,7 +1549,7 @@
         <div class="event-meta-cards">
           <div class="meta-box">
             <div class="meta-label">📅 Date</div>
-            <div class="meta-value">JAN 9TH, 2026</div>
+            <div class="meta-value">JAN 9TH, 2027</div>
           </div>
           <div class="meta-box">
             <div class="meta-label">⏰ Doors Open</div>
@@ -1928,7 +1928,7 @@
 
       <div class="pass-body">
         <h3 class="pass-event-title">Official Admission Pass</h3>
-        <p class="pass-event-date">Saturday, January 9th, 2026 · Doors Open 9:00 PM · Sigma Gamma Chapter</p>
+        <p class="pass-event-date">Saturday, January 9th, 2027 · Doors Open 9:00 PM · Sigma Gamma Chapter</p>
 
         <!-- Venmo Notice Banner (shown if method is Venmo) -->
         <div id="passVenmoNotice" style="display:none; background:rgba(0, 140, 255, 0.14); border:1px solid rgba(0, 140, 255, 0.45); border-radius:14px; padding:0.9rem 1.1rem; margin-bottom:1.25rem; font-size:0.85rem; color:#bae6fd; text-align:left; line-height:1.45;">
@@ -2044,14 +2044,11 @@
     }
 
     // ════════════════════════════════════════════════════════════════
-    // COUNTDOWN TIMER TO JANUARY 9TH, 2026 (9:00 PM PST)
+    // COUNTDOWN TIMER TO JANUARY 9TH, 2027 (9:00 PM PST)
     // ════════════════════════════════════════════════════════════════
     function updateCountdown() {
-      let eventDate = new Date('2026-01-09T21:00:00-08:00').getTime();
+      const eventDate = new Date('2027-01-09T21:00:00-08:00').getTime();
       const now = new Date().getTime();
-      if (now > eventDate) {
-        eventDate = new Date(`${new Date().getFullYear() + 1}-01-09T21:00:00-08:00`).getTime();
-      }
       let diff = eventDate - now;
 
       if (diff < 0) {

@@ -115,7 +115,7 @@ async function getStripeLineItem(tierName, priceInDollars) {
       unit_amount: Math.round(priceInDollars * 100), // Convert dollars to cents
       product_data: {
         name: `Banda Night 2026 — ${tierName} Admission`,
-        description: 'Sigma Lambda Beta · Sigma Gamma Chapter · Saturday, January 9th, 2026 · Doors 9:00 PM PST',
+        description: 'Sigma Lambda Beta · Sigma Gamma Chapter · Saturday, January 9th, 2027 · Doors 9:00 PM PST',
         tax_code: 'txcd_10103100',
       },
     },
