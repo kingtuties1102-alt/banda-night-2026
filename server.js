@@ -232,38 +232,53 @@ const TIERS = [
 function getCurrentTierInfo(db) {
   const activeTickets = (db.tickets || []).filter(t => t.paymentStatus !== 'REFUNDED');
   const totalSold = activeTickets.length;
+
+  // maxActiveTierIndex: highest tier index you've manually unlocked (default 0 = Early Bird only)
+  const maxActiveTierIndex = typeof db.config?.maxActiveTierIndex === 'number'
+    ? db.config.maxActiveTierIndex
+    : 0;
+
   let cumulative = 0;
 
   for (let i = 0; i < TIERS.length; i++) {
     cumulative += TIERS[i].limit;
     if (totalSold < cumulative) {
+      // This is the tier that has capacity — but is it unlocked?
+      const tierPaused = i > maxActiveTierIndex;
       const remaining = TIERS[i].limit === Infinity ? 'Unlimited' : (cumulative - totalSold);
       return {
         currentTier: TIERS[i],
         tierIndex: i,
         ticketsSold: totalSold,
-        remainingInTier: remaining,
+        remainingInTier: tierPaused ? 0 : remaining,
+        tierPaused,          // true = tier sold out & next drop not yet opened
+        maxActiveTierIndex,
         tiers: TIERS.map((t, idx) => ({
           ...t,
-          isCurrent: idx === i,
-          isSoldOut: idx < i,
-          isUpcoming: idx > i,
+          isCurrent: idx === i && !tierPaused,
+          isSoldOut: idx < i || (idx === i && tierPaused),
+          isUpcoming: idx > i || (idx === i && tierPaused),
+          isLocked: idx > maxActiveTierIndex,
         })),
       };
     }
   }
 
+  // All tiers exhausted (sold out completely)
   const last = TIERS[TIERS.length - 1];
   return {
     currentTier: last,
     tierIndex: TIERS.length - 1,
     ticketsSold: totalSold,
     remainingInTier: 'Unlimited',
+    tierPaused: false,
+    maxActiveTierIndex,
     tiers: TIERS.map((t, idx) => ({
       ...t,
       isCurrent: idx === TIERS.length - 1,
       isSoldOut: idx < TIERS.length - 1,
       isUpcoming: false,
+      isLocked: false,
     })),
   };
 }
@@ -422,9 +437,16 @@ const server = http.createServer(async (req, res) => {
     try {
       // 1. Get current tier info and price
       const tierInfo = getCurrentTierInfo(db);
+
+      // Block purchase if the current tier sold out and next drop hasn't been opened yet
+      if (tierInfo.tierPaused) {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'This tier is sold out! The next ticket drop has not opened yet. Stay tuned for the announcement.' }));
+      }
+
       const currentTier = tierInfo.currentTier;
-      const tierPrice = currentTier.price; // e.g. 15, 20, 25
-      const tierName = currentTier.name;   // e.g. "Early Bird"
+      const tierPrice = currentTier.price;
+      const tierName = currentTier.name;
 
       const ticketId = body.ticketId || ('SLB-' + crypto.randomBytes(6).toString('hex').toUpperCase());
       const securityToken = crypto.randomBytes(16).toString('hex');
@@ -792,6 +814,12 @@ const server = http.createServer(async (req, res) => {
     try {
       ticket = await withDBLock((db) => {
         const info = getCurrentTierInfo(db);
+
+        // Block if tier sold out and next drop not yet opened
+        if (info.tierPaused) {
+          throw Object.assign(new Error('This tier is sold out! The next ticket drop has not opened yet. Stay tuned for the announcement.'), { statusCode: 409 });
+        }
+
         const tier = info.currentTier;
 
         const ticketId = 'SLB-' + crypto.randomBytes(6).toString('hex').toUpperCase();
@@ -824,8 +852,9 @@ const server = http.createServer(async (req, res) => {
       });
     } catch (lockErr) {
       console.error('[MUTEX ERROR] purchase lock failed:', lockErr.message);
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ error: 'Server error processing purchase. Please try again.' }));
+      const statusCode = lockErr.statusCode || 500;
+      res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: lockErr.message || 'Server error processing purchase. Please try again.' }));
     }
 
     // Asynchronously dispatch email receipt to attendee
@@ -1037,6 +1066,8 @@ const server = http.createServer(async (req, res) => {
       venmoUsername: venmoUser,
       currentTier: info.currentTier,
       tiers: info.tiers,
+      tierPaused: info.tierPaused,
+      maxActiveTierIndex: info.maxActiveTierIndex,
     }));
   }
 
@@ -1153,6 +1184,32 @@ const server = http.createServer(async (req, res) => {
     saveDB(db);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ success: true, siteLocked: nextState }));
+  }
+
+  // --- API: Admin Open Next Tier Drop ---
+  if (pathname === '/api/admin/open-next-tier' && req.method === 'POST') {
+    if (!checkAdminAuth(req)) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Unauthorized.' }));
+    }
+    const db = loadDB();
+    if (!db.config) db.config = {};
+    const currentMax = typeof db.config.maxActiveTierIndex === 'number' ? db.config.maxActiveTierIndex : 0;
+    if (currentMax >= TIERS.length - 1) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'All tiers are already open. No more tiers to unlock.' }));
+    }
+    const newMax = currentMax + 1;
+    db.config.maxActiveTierIndex = newMax;
+    saveDB(db);
+    console.log(`[TIER DROP] Tier unlocked to index ${newMax}: ${TIERS[newMax].name} ($${TIERS[newMax].price})`);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({
+      success: true,
+      unlockedTier: TIERS[newMax],
+      maxActiveTierIndex: newMax,
+      message: `${TIERS[newMax].name} ($${TIERS[newMax].price}) is now open for purchase!`,
+    }));
   }
 
   // --- API: Admin Send Test Email ---
