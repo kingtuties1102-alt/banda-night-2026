@@ -2081,9 +2081,14 @@
 
         const currentTier = data.currentTier;
         const tierIdx = data.tierIndex;
+        const isPaused = Boolean(data.tierPaused);
 
         // Update hero price tag
-        document.getElementById('heroPriceTag').textContent = `$${currentTier.price} · ${currentTier.name}`;
+        if (isPaused) {
+          document.getElementById('heroPriceTag').textContent = `Tier Sold Out · Next Drop Soon`;
+        } else {
+          document.getElementById('heroPriceTag').textContent = `$${currentTier.price} · ${currentTier.name}`;
+        }
 
         // Update 3 tier cards
         for (let i = 0; i < 3; i++) {
@@ -2096,8 +2101,13 @@
             card.classList.add('sold-out-tier');
             pill.textContent = 'SOLD OUT';
           } else if (i === tierIdx) {
-            card.classList.add('active-tier');
-            pill.textContent = 'Selling Now';
+            if (isPaused) {
+              card.classList.add('upcoming-tier');
+              pill.textContent = 'Dropping Soon';
+            } else {
+              card.classList.add('active-tier');
+              pill.textContent = 'Selling Now';
+            }
           } else {
             card.classList.add('upcoming-tier');
             pill.textContent = 'Upcoming';
@@ -2105,22 +2115,51 @@
         }
 
         // Update progress card
-        document.getElementById('progressTierName').textContent = `${currentTier.name} ($${currentTier.price})`;
-        document.getElementById('progressSoldNum').textContent = data.ticketsSold;
-        document.getElementById('progressRemainingNum').textContent = data.remainingInTier;
+        const prevTier = data.tiers && tierIdx > 0 ? data.tiers[tierIdx - 1] : null;
+        if (isPaused) {
+          document.getElementById('progressTierName').textContent = `${prevTier ? prevTier.name : 'Current Tier'} Sold Out · Next Drop Soon`;
+          document.getElementById('progressSoldNum').textContent = data.ticketsSold;
+          document.getElementById('progressRemainingNum').textContent = 0;
+          document.getElementById('progressBarFill').style.width = '100%';
+        } else {
+          document.getElementById('progressTierName').textContent = `${currentTier.name} ($${currentTier.price})`;
+          document.getElementById('progressSoldNum').textContent = data.ticketsSold;
+          document.getElementById('progressRemainingNum').textContent = data.remainingInTier;
 
-        let pct = 0;
-        if (currentTier.limit && currentTier.limit !== Infinity) {
-          const inCurrent = data.ticketsSold % currentTier.limit;
-          pct = Math.min(100, Math.round((inCurrent / currentTier.limit) * 100));
+          let pct = 0;
+          if (currentTier.limit && currentTier.limit !== Infinity) {
+            const inCurrent = data.ticketsSold % currentTier.limit;
+            pct = Math.min(100, Math.round((inCurrent / currentTier.limit) * 100));
+          }
+          document.getElementById('progressBarFill').style.width = pct + '%';
         }
-        document.getElementById('progressBarFill').style.width = pct + '%';
 
-        // Update checkout form tags
-        document.getElementById('checkoutTierTag').textContent = `Purchasing: ${currentTier.name} ($${currentTier.price}.00)`;
-        document.getElementById('btnPayText').textContent = `Pay $${currentTier.price}.00 with Card · Get QR Ticket`;
-        document.getElementById('btnInitText').textContent = `Pay $${currentTier.price}.00 with Card · Get QR Ticket`;
-        document.getElementById('btnVenmoText').textContent = `Pay $${currentTier.price}.00 via Venmo & Get QR Pass`;
+        // Update checkout form tags & purchase button states
+        const venmoBtn = document.getElementById('btnVenmoSubmit');
+        const stripeBtn = document.getElementById('btnInitStripe');
+        const cardBtn = document.getElementById('btnPaySubmit');
+        const tierTag = document.getElementById('checkoutTierTag');
+
+        if (isPaused) {
+          tierTag.textContent = `🎟️ ${prevTier ? prevTier.name : 'Tier'} Sold Out — Next Drop Opening Soon!`;
+          tierTag.style.color = '#fbbf24';
+          document.getElementById('btnPayText').textContent = `Tier Sold Out · Next Drop Soon`;
+          document.getElementById('btnInitText').textContent = `Tier Sold Out · Next Drop Soon`;
+          document.getElementById('btnVenmoText').textContent = `Tier Sold Out · Next Drop Soon`;
+          [venmoBtn, stripeBtn, cardBtn].forEach(b => {
+            if (b) { b.disabled = true; b.style.opacity = '0.5'; b.style.cursor = 'not-allowed'; }
+          });
+        } else {
+          tierTag.textContent = `Purchasing: ${currentTier.name} ($${currentTier.price}.00)`;
+          tierTag.style.color = '';
+          document.getElementById('btnPayText').textContent = `Pay $${currentTier.price}.00 with Card · Get QR Ticket`;
+          document.getElementById('btnInitText').textContent = `Pay $${currentTier.price}.00 with Card · Get QR Ticket`;
+          document.getElementById('btnVenmoText').textContent = `Pay $${currentTier.price}.00 via Venmo & Get QR Pass`;
+          [venmoBtn, stripeBtn, cardBtn].forEach(b => {
+            if (b) { b.disabled = false; b.style.opacity = '1'; b.style.cursor = 'pointer'; }
+          });
+        }
+
         const venmoHandle = data.venmoUsername || 'Betas_UCSB';
         document.getElementById('displayVenmoHandle').textContent = `@${venmoHandle}`;
 
@@ -2561,11 +2600,7 @@
         alert(err.message || 'Payment processing error. Please try again.');
       } finally {
         venmoBtn.disabled = false;
-        if (currentTierData) {
-          venmoText.textContent = `Pay $${currentTierData.currentTier.price}.00 via Venmo & Get QR Pass`;
-        } else {
-          venmoText.textContent = 'Pay via Venmo & Get QR Pass';
-        }
+        await fetchTierStatus();
       }
     }
 

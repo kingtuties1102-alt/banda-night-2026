@@ -212,14 +212,25 @@ let _dbLockQueue = Promise.resolve();
  * Usage: const result = await withDBLock(db => { ...mutate db...; saveDB(db); return value; });
  */
 function withDBLock(fn) {
-  _dbLockQueue = _dbLockQueue.then(() => {
+  const result = _dbLockQueue.then(() => {
     const db = loadDB();
-    return Promise.resolve(fn(db)).catch(err => {
-      console.error('[DB Lock] Error inside locked operation:', err);
-      throw err;
-    });
+    return Promise.resolve(fn(db));
   });
-  return _dbLockQueue;
+  // Always keep the shared queue resolved so one rejected write never poisons subsequent callers
+  _dbLockQueue = result.catch((err) => {
+    console.error('[DB Lock] Locked operation error:', err.message);
+  });
+  return result;
+}
+
+function updateTicketFields(ticketId, updates) {
+  return withDBLock((lockedDb) => {
+    const t = (lockedDb.tickets || []).find(x => x.ticketId === ticketId);
+    if (t) {
+      Object.assign(t, updates);
+      saveDB(lockedDb);
+    }
+  }).catch(err => console.error('[DB Lock] updateTicketFields error:', err));
 }
 
 // --- TIER CONFIGURATION ---
@@ -739,6 +750,7 @@ const server = http.createServer(async (req, res) => {
 
       // --- MUTEX: serialize ticket finalization to prevent duplicate writes ---
       let ticket;
+      let createdNewTicket = false;
       let emailConfig;
       let smsConfig;
       await withDBLock((db) => {
@@ -764,6 +776,7 @@ const server = http.createServer(async (req, res) => {
         db.tickets.push(ticket);
         delete db.pendingSessions[session_id];
         saveDB(db);
+        createdNewTicket = true;
         console.log(`[MUTEX] checkout-complete ticket ${ticket.ticketId} written (total: ${db.tickets.length})`);
 
         emailConfig = db.config?.email || {};
@@ -780,14 +793,14 @@ const server = http.createServer(async (req, res) => {
         return res.end(JSON.stringify({ error: 'Session not found or already processed.' }));
       }
 
-      // Send email + SMS receipts outside the lock (async, non-blocking)
-      if (emailConfig) {
+      // Send email + SMS receipts outside the lock (only if newly created)
+      if (createdNewTicket && emailConfig) {
         sendTicketReceipt(ticket, { ...emailConfig, venmoUsername: smsConfig?.venmoUsername || VENMO_USERNAME }, BASE_URL)
-          .then(r => { ticket.emailStatus = r.simulated ? 'SIMULATED' : 'SENT'; ticket.emailSentAt = new Date().toISOString(); saveDB(loadDB()); })
-          .catch(e => { ticket.emailStatus = 'FAILED'; ticket.emailError = e.message; });
+          .then(r => updateTicketFields(ticket.ticketId, { emailStatus: r.simulated ? 'SIMULATED' : 'SENT', emailSentAt: new Date().toISOString() }))
+          .catch(e => updateTicketFields(ticket.ticketId, { emailStatus: 'FAILED', emailError: e.message }));
         sendSmsReceipt(ticket, smsConfig, BASE_URL)
-          .then(r => { if (!r.skipped) { ticket.smsStatus = 'SENT'; ticket.smsSentAt = new Date().toISOString(); } })
-          .catch(e => { ticket.smsStatus = 'FAILED'; ticket.smsError = e.message; });
+          .then(r => { if (!r.skipped) updateTicketFields(ticket.ticketId, { smsStatus: 'SENT', smsSentAt: new Date().toISOString() }); })
+          .catch(e => updateTicketFields(ticket.ticketId, { smsStatus: 'FAILED', smsError: e.message }));
       }
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -852,9 +865,9 @@ const server = http.createServer(async (req, res) => {
     }
 
     // --- MUTEX: serialize ticket writes to prevent race conditions ---
-    let ticket;
+    let purchaseResult;
     try {
-      ticket = await withDBLock((db) => {
+      purchaseResult = await withDBLock((db) => {
         const info = getCurrentTierInfo(db);
 
         // Block if tier sold out and next drop not yet opened
@@ -890,7 +903,19 @@ const server = http.createServer(async (req, res) => {
         db.tickets.push(newTicket);
         saveDB(db);
         console.log(`[MUTEX] Ticket ${ticketId} written (total: ${db.tickets.length})`);
-        return newTicket;
+
+        return {
+          ticket: newTicket,
+          tierPrice: tier.price,
+          emailConfig: db.config?.email || {},
+          venmoUser: db.config?.venmoUsername || VENMO_USERNAME,
+          smsConfig: {
+            twilioAccountSid: db.config?.twilio?.accountSid || TWILIO_ACCOUNT_SID,
+            twilioAuthToken:  db.config?.twilio?.authToken  || TWILIO_AUTH_TOKEN,
+            twilioFromNumber: db.config?.twilio?.fromNumber || TWILIO_FROM_NUMBER,
+            venmoUsername: db.config?.venmoUsername || VENMO_USERNAME,
+          },
+        };
       });
     } catch (lockErr) {
       console.error('[MUTEX ERROR] purchase lock failed:', lockErr.message);
@@ -899,40 +924,37 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify({ error: lockErr.message || 'Server error processing purchase. Please try again.' }));
     }
 
-    // Asynchronously dispatch email receipt to attendee
-    const emailConfig = db.config?.email || {};
-    const smsConfig = {
-      twilioAccountSid: db.config?.twilio?.accountSid || TWILIO_ACCOUNT_SID,
-      twilioAuthToken:  db.config?.twilio?.authToken  || TWILIO_AUTH_TOKEN,
-      twilioFromNumber: db.config?.twilio?.fromNumber || TWILIO_FROM_NUMBER,
-      venmoUsername: db.config?.venmoUsername || VENMO_USERNAME,
-    };
+    const { ticket, tierPrice, emailConfig, venmoUser, smsConfig } = purchaseResult;
 
+    // Asynchronously dispatch email receipt to attendee
     sendTicketReceipt(ticket, {
       ...emailConfig,
-      venmoUsername: db.config?.venmoUsername || VENMO_USERNAME,
+      venmoUsername: venmoUser,
     }, BASE_URL)
       .then(result => {
-        ticket.emailStatus = result.simulated ? 'SIMULATED' : 'SENT';
-        ticket.emailSentAt = new Date().toISOString();
-        ticket.emailProvider = result.provider || 'simulated';
-        saveDB(db);
+        updateTicketFields(ticket.ticketId, {
+          emailStatus: result.simulated ? 'SIMULATED' : 'SENT',
+          emailSentAt: new Date().toISOString(),
+          emailProvider: result.provider || 'simulated',
+        });
         console.log(`[RECEIPT] Email dispatched to ${ticket.buyerEmail} for ticket ${ticket.ticketId}`);
       })
       .catch(emailErr => {
         console.error(`[RECEIPT ERROR] Failed to send email to ${ticket.buyerEmail}:`, emailErr.message);
-        ticket.emailStatus = 'FAILED';
-        ticket.emailError = emailErr.message;
-        saveDB(db);
+        updateTicketFields(ticket.ticketId, {
+          emailStatus: 'FAILED',
+          emailError: emailErr.message,
+        });
       });
 
     // Asynchronously dispatch SMS receipt to attendee (if phone provided + Twilio configured)
     sendSmsReceipt(ticket, smsConfig, BASE_URL)
       .then(result => {
         if (!result.skipped) {
-          ticket.smsStatus = 'SENT';
-          ticket.smsSentAt = new Date().toISOString();
-          saveDB(db);
+          updateTicketFields(ticket.ticketId, {
+            smsStatus: 'SENT',
+            smsSentAt: new Date().toISOString(),
+          });
           console.log(`[SMS] Text receipt sent to ${ticket.buyerPhone} for ticket ${ticket.ticketId}`);
         } else {
           console.log(`[SMS] Skipped for ${ticket.ticketId}: ${result.reason}`);
@@ -940,14 +962,14 @@ const server = http.createServer(async (req, res) => {
       })
       .catch(smsErr => {
         console.error(`[SMS ERROR] Failed to send SMS to ${ticket.buyerPhone}:`, smsErr.message);
-        ticket.smsStatus = 'FAILED';
-        ticket.smsError = smsErr.message;
-        saveDB(db);
+        updateTicketFields(ticket.ticketId, {
+          smsStatus: 'FAILED',
+          smsError: smsErr.message,
+        });
       });
 
-    const venmoUser = db.config?.venmoUsername || VENMO_USERNAME;
     const venmoNote = `Banda Night - ${ticket.ticketId} - ${ticket.buyerName}`;
-    const venmoDeepLink = `https://venmo.com/${venmoUser}?txn=pay&amount=${tier.price}&note=${encodeURIComponent(venmoNote)}`;
+    const venmoDeepLink = `https://venmo.com/${venmoUser}?txn=pay&amount=${tierPrice}&note=${encodeURIComponent(venmoNote)}`;
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({
@@ -996,70 +1018,81 @@ const server = http.createServer(async (req, res) => {
       // not JSON
     }
 
-    const db = loadDB();
-    const ticket = db.tickets.find(t => t.ticketId.toUpperCase() === ticketId);
+    let checkinResponse;
+    let venmoConfirmEmailArgs = null;
 
-    if (!ticket) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({
-        valid: false,
-        message: 'Invalid Ticket — Code not found in database.',
-      }));
-    }
+    await withDBLock((db) => {
+      const ticket = db.tickets.find(t => t.ticketId.toUpperCase() === ticketId);
 
-    if (ticket.paymentStatus === 'REFUNDED') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({
-        valid: false,
-        isRefunded: true,
-        message: '⛔ TICKET VOID / REFUNDED — Do NOT allow entry!',
-        ticket,
-      }));
-    }
-
-    // Door check: Is ticket paid?
-    if (ticket.paymentStatus !== 'PAID') {
-      if (confirmVenmo && ticket.paymentStatus === 'VENMO_PENDING') {
-        // Door staff verified and confirmed payment on the spot
-        ticket.paymentStatus = 'PAID';
-        ticket.paidAt = new Date().toISOString();
-        const emailConfig = db.config?.email || {};
-        sendTicketReceipt(ticket, {
-          ...emailConfig,
-          venmoUsername: db.config?.venmoUsername || VENMO_USERNAME,
-        }, BASE_URL).catch(e => console.error('Venmo checkin email error:', e.message));
-      } else {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({
+      if (!ticket) {
+        checkinResponse = {
           valid: false,
-          isPending: true,
-          message: '⚠️ UNPAID TICKET — Venmo payment is still pending! Verify transfer before admitting.',
-          ticket,
-        }));
+          message: 'Invalid Ticket — Code not found in database.',
+        };
+        return;
       }
-    }
 
-    if (ticket.checkedIn) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({
-        valid: false,
-        alreadyCheckedIn: true,
-        message: `⚠️ ALREADY SCANNED! Checked in on ${new Date(ticket.checkedInAt).toLocaleTimeString()}`,
+      if (ticket.paymentStatus === 'REFUNDED') {
+        checkinResponse = {
+          valid: false,
+          isRefunded: true,
+          message: '⛔ TICKET VOID / REFUNDED — Do NOT allow entry!',
+          ticket,
+        };
+        return;
+      }
+
+      // Door check: Is ticket paid?
+      if (ticket.paymentStatus !== 'PAID') {
+        if (confirmVenmo && ticket.paymentStatus === 'VENMO_PENDING') {
+          // Door staff verified and confirmed payment on the spot
+          ticket.paymentStatus = 'PAID';
+          ticket.paidAt = new Date().toISOString();
+          const emailConfig = db.config?.email || {};
+          venmoConfirmEmailArgs = {
+            ticket: { ...ticket },
+            config: { ...emailConfig, venmoUsername: db.config?.venmoUsername || VENMO_USERNAME },
+          };
+        } else {
+          checkinResponse = {
+            valid: false,
+            isPending: true,
+            message: '⚠️ UNPAID TICKET — Venmo payment is still pending! Verify transfer before admitting.',
+            ticket,
+          };
+          return;
+        }
+      }
+
+      if (ticket.checkedIn) {
+        checkinResponse = {
+          valid: false,
+          alreadyCheckedIn: true,
+          message: `⚠️ ALREADY SCANNED! Checked in on ${new Date(ticket.checkedInAt).toLocaleTimeString()}`,
+          ticket,
+        };
+        return;
+      }
+
+      // Mark as checked in
+      ticket.checkedIn = true;
+      ticket.checkedInAt = new Date().toISOString();
+      saveDB(db);
+
+      checkinResponse = {
+        valid: true,
+        message: '✅ ADMISSION GRANTED! Welcome to Banda Night.',
         ticket,
-      }));
-    }
+      };
+    });
 
-    // Mark as checked in
-    ticket.checkedIn = true;
-    ticket.checkedInAt = new Date().toISOString();
-    saveDB(db);
+    if (venmoConfirmEmailArgs) {
+      sendTicketReceipt(venmoConfirmEmailArgs.ticket, venmoConfirmEmailArgs.config, BASE_URL)
+        .catch(e => console.error('Venmo checkin email error:', e.message));
+    }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({
-      valid: true,
-      message: '✅ ADMISSION GRANTED! Welcome to Banda Night.',
-      ticket,
-    }));
+    return res.end(JSON.stringify(checkinResponse));
   }
 
   // --- API: Admin Passcode Login / Verification ---
@@ -1424,34 +1457,43 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify({ error: 'Ticket ID required.' }));
     }
 
-    const db = loadDB();
-    const ticket = db.tickets.find(t => t.ticketId === ticketId);
+    let confirmResult = null;
+    await withDBLock((db) => {
+      const ticket = db.tickets.find(t => t.ticketId === ticketId);
+      if (!ticket) return;
 
-    if (!ticket) {
+      ticket.paymentStatus = 'PAID';
+      ticket.paidAt = new Date().toISOString();
+      saveDB(db);
+
+      confirmResult = {
+        ticket: { ...ticket },
+        emailConfig: db.config?.email || {},
+        smsConfigVenmo: {
+          twilioAccountSid: db.config?.twilio?.accountSid || TWILIO_ACCOUNT_SID,
+          twilioAuthToken:  db.config?.twilio?.authToken  || TWILIO_AUTH_TOKEN,
+          twilioFromNumber: db.config?.twilio?.fromNumber || TWILIO_FROM_NUMBER,
+          venmoUsername: db.config?.venmoUsername || VENMO_USERNAME,
+        },
+      };
+    });
+
+    if (!confirmResult) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ error: 'Ticket not found.' }));
     }
 
-    ticket.paymentStatus = 'PAID';
-    ticket.paidAt = new Date().toISOString();
-    saveDB(db);
+    const { ticket, emailConfig, smsConfigVenmo } = confirmResult;
 
     // Automatically send receipt with activated QR code to attendee now that ticket is paid!
-    const emailConfig = db.config?.email || {};
     sendTicketReceipt(ticket, {
       ...emailConfig,
-      venmoUsername: db.config?.venmoUsername || VENMO_USERNAME,
+      venmoUsername: smsConfigVenmo.venmoUsername,
     }, BASE_URL)
-      .then(res => console.log(`[RECEIPT] Activated pass emailed to ${ticket.buyerEmail} on Venmo confirm.`))
+      .then(() => console.log(`[RECEIPT] Activated pass emailed to ${ticket.buyerEmail} on Venmo confirm.`))
       .catch(e => console.error('[RECEIPT ERROR] Failed to send activated pass:', e.message));
 
     // Also fire SMS with unlocked QR pass link
-    const smsConfigVenmo = {
-      twilioAccountSid: db.config?.twilio?.accountSid || TWILIO_ACCOUNT_SID,
-      twilioAuthToken:  db.config?.twilio?.authToken  || TWILIO_AUTH_TOKEN,
-      twilioFromNumber: db.config?.twilio?.fromNumber || TWILIO_FROM_NUMBER,
-      venmoUsername: db.config?.venmoUsername || VENMO_USERNAME,
-    };
     sendSmsReceipt(ticket, smsConfigVenmo, BASE_URL)
       .then(r => { if (!r.skipped) console.log(`[SMS] Unlocked QR pass SMS sent to ${ticket.buyerPhone} on Venmo confirm.`); })
       .catch(e => console.error('[SMS ERROR] Venmo confirm SMS failed:', e.message));
@@ -1470,17 +1512,19 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify({ error: 'Ticket ID required.' }));
     }
 
-    const db = loadDB();
-    const ticket = db.tickets.find(t => t.ticketId === ticketId);
+    const found = await withDBLock((db) => {
+      const ticket = db.tickets.find(t => t.ticketId === ticketId);
+      if (!ticket) return false;
+      ticket.paymentStatus = 'REFUNDED';
+      ticket.refundedAt = new Date().toISOString();
+      saveDB(db);
+      return true;
+    });
 
-    if (!ticket) {
+    if (!found) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ error: 'Ticket not found.' }));
     }
-
-    ticket.paymentStatus = 'REFUNDED';
-    ticket.refundedAt = new Date().toISOString();
-    saveDB(db);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ success: true, ticketId }));
