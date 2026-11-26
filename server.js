@@ -594,15 +594,6 @@ const server = http.createServer(async (req, res) => {
     try {
       const session = await stripeRequest('GET', `/v1/checkout/sessions/${sessionId}`, {});
       if (session.payment_status === 'paid') {
-        const curTier = getCurrentTierInfo(db).currentTier;
-        const pending = db.pendingSessions[sessionId] || {
-          ticketId: 'SLB-' + crypto.randomBytes(6).toString('hex').toUpperCase(),
-          buyerName: session.customer_details?.name || 'Attendee',
-          buyerEmail: session.customer_details?.email || '',
-          tier: curTier.name,
-          price: curTier.price,
-        };
-
         let cardBrand = '';
         let cardLast4 = '';
         if (session.payment_intent) {
@@ -613,32 +604,83 @@ const server = http.createServer(async (req, res) => {
           } catch (_) {}
         }
 
-        if (!ticket) {
-          ticket = {
-            ...pending,
-            paymentStatus: 'PAID',
-            paidAt: new Date().toISOString(),
-            stripeSessionId: sessionId,
-            cardBrand: cardBrand || pending.cardBrand || '',
-            cardLast4: cardLast4 || pending.cardLast4 || '',
-            method: 'CARD',
-          };
-          db.tickets.push(ticket);
-          delete db.pendingSessions[sessionId];
-          saveDB(db);
+        let createdNewTicket = false;
+        let emailConfig;
+        let smsConfig;
 
-          // Dispatch ticket receipt email
-          const emailConfig = db.config?.email || {};
+        await withDBLock((lockedDb) => {
+          if (!lockedDb.pendingSessions) lockedDb.pendingSessions = {};
+          ticket = (lockedDb.tickets || []).find(t => t.stripeSessionId === sessionId);
+
+          if (!ticket) {
+            const curTier = getCurrentTierInfo(lockedDb).currentTier;
+            const pending = lockedDb.pendingSessions[sessionId] || {
+              ticketId: 'SLB-' + crypto.randomBytes(6).toString('hex').toUpperCase(),
+              securityToken: crypto.randomBytes(16).toString('hex'),
+              buyerName: session.customer_details?.name || 'Attendee',
+              buyerEmail: session.customer_details?.email || '',
+              tier: curTier.name,
+              price: curTier.price,
+              purchasedAt: new Date().toISOString(),
+            };
+
+            ticket = {
+              ...pending,
+              securityToken: pending.securityToken || crypto.randomBytes(16).toString('hex'),
+              purchasedAt: pending.purchasedAt || new Date().toISOString(),
+              paymentStatus: 'PAID',
+              paidAt: new Date().toISOString(),
+              stripeSessionId: sessionId,
+              cardBrand: cardBrand || pending.cardBrand || '',
+              cardLast4: cardLast4 || pending.cardLast4 || '',
+              method: 'CARD',
+            };
+            lockedDb.tickets.push(ticket);
+            delete lockedDb.pendingSessions[sessionId];
+            saveDB(lockedDb);
+            createdNewTicket = true;
+          } else if (ticket.paymentStatus !== 'PAID') {
+            ticket.paymentStatus = 'PAID';
+            ticket.paidAt = ticket.paidAt || new Date().toISOString();
+            saveDB(lockedDb);
+          }
+
+          emailConfig = lockedDb.config?.email || {};
+          smsConfig = {
+            twilioAccountSid: lockedDb.config?.twilio?.accountSid || TWILIO_ACCOUNT_SID,
+            twilioAuthToken:  lockedDb.config?.twilio?.authToken  || TWILIO_AUTH_TOKEN,
+            twilioFromNumber: lockedDb.config?.twilio?.fromNumber || TWILIO_FROM_NUMBER,
+            venmoUsername: lockedDb.config?.venmoUsername || VENMO_USERNAME,
+          };
+        });
+
+        if (createdNewTicket && ticket) {
           sendTicketReceipt(ticket, {
             ...emailConfig,
-            venmoUsername: db.config?.venmoUsername || VENMO_USERNAME,
+            venmoUsername: smsConfig.venmoUsername,
           }, BASE_URL)
-            .then(r => { ticket.emailStatus = r.simulated ? 'SIMULATED' : 'SENT'; ticket.emailSentAt = new Date().toISOString(); saveDB(db); })
-            .catch(e => { ticket.emailStatus = 'FAILED'; ticket.emailError = e.message; saveDB(db); });
-        } else {
-          ticket.paymentStatus = 'PAID';
-          ticket.paidAt = new Date().toISOString();
-          saveDB(db);
+            .then(r => {
+              withDBLock((lockedDb) => {
+                const tRef = lockedDb.tickets.find(x => x.ticketId === ticket.ticketId);
+                if (tRef) {
+                  tRef.emailStatus = r.simulated ? 'SIMULATED' : 'SENT';
+                  tRef.emailSentAt = new Date().toISOString();
+                  saveDB(lockedDb);
+                }
+              }).catch(() => {});
+            })
+            .catch(e => {
+              withDBLock((lockedDb) => {
+                const tRef = lockedDb.tickets.find(x => x.ticketId === ticket.ticketId);
+                if (tRef) {
+                  tRef.emailStatus = 'FAILED';
+                  tRef.emailError = e.message;
+                  saveDB(lockedDb);
+                }
+              }).catch(() => {});
+            });
+
+          sendSmsReceipt(ticket, smsConfig, BASE_URL).catch(() => {});
         }
 
         res.writeHead(200, { 'Content-Type': 'application/json' });

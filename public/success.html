@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Successful — Banda Night</title>
+  <title>Payment Successful — Banda Night 2027</title>
   <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Raleway:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -55,9 +55,9 @@
 
     <div id="content">
       <h1 id="statusTitle">🎉 You're In!</h1>
-      <p id="statusMsg">Your ticket to Banda Night is confirmed.</p>
+      <p id="statusMsg">Your ticket to Banda Night 2027 is confirmed.</p>
       <div class="qr-box" id="qrBox" style="display:none;">
-        <img id="ticketQR" src="" alt="QR Code">
+        <div id="ticketQRContainer" style="width:220px; height:220px; display:flex; align-items:center; justify-content:center;"></div>
       </div>
       <div class="ticket-info" id="ticketInfo" style="display:none;">
         <div class="info-row"><span class="lbl">Name</span><span class="val" id="tName">—</span></div>
@@ -65,15 +65,18 @@
         <div class="info-row"><span class="lbl">Price</span><span class="val" id="tPrice">—</span></div>
         <div class="info-row"><span class="lbl">Ticket ID</span><span class="val" id="tId" style="font-size:0.7rem;word-break:break-all;">—</span></div>
       </div>
-      <div>
-        <button class="btn btn-save" id="saveBtn" style="display:none;" onclick="downloadQR()">📥 Save QR</button>
+      <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:0.5rem;">
+        <a href="#" id="passLinkBtn" class="btn btn-save" style="display:none;">🎟 View Digital Pass</a>
+        <button class="btn" id="saveBtn" style="display:none;" onclick="downloadQR()">📥 Save QR</button>
         <a href="/" class="btn">← Back to Site</a>
       </div>
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script src="/qrcode.min.js"></script>
   <script>
+    let lastQrFallbackUrl = '';
+
     async function verifyPayment() {
       const params = new URLSearchParams(window.location.search);
       const sessionId = params.get('session_id');
@@ -96,7 +99,7 @@
 
         if (data.success) {
           const t = data.ticket;
-          document.getElementById('tName').textContent = t.name;
+          document.getElementById('tName').textContent = t.name || t.buyerName || 'Attendee';
           document.getElementById('tTier').textContent = t.tier;
           document.getElementById('tPrice').textContent = `$${t.price}`;
           document.getElementById('tId').textContent = t.ticketId;
@@ -104,18 +107,49 @@
           document.getElementById('qrBox').style.display = 'inline-block';
           document.getElementById('saveBtn').style.display = 'inline-block';
 
+          const passBtn = document.getElementById('passLinkBtn');
+          passBtn.href = `/ticket.html?id=${encodeURIComponent(t.ticketId)}`;
+          passBtn.style.display = 'inline-block';
+
           const qrData = JSON.stringify({
             ticketId: t.ticketId,
-            event: 'Banda Night - Sigma Lambda Beta',
-            name: t.name,
+            event: 'Banda Night 2027 - Sigma Lambda Beta',
+            name: t.name || t.buyerName,
             tier: t.tier,
             price: t.price,
+            issued: t.purchasedAt,
+            token: t.securityToken,
           });
-          const qrUrl = await QRCode.toDataURL(qrData, {
-            width: 400, margin: 2,
-            color: { dark: '#0a0020', light: '#ffffff' }
-          });
-          document.getElementById('ticketQR').src = qrUrl;
+          lastQrFallbackUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=8&data=${encodeURIComponent(qrData)}`;
+
+          const container = document.getElementById('ticketQRContainer');
+          container.innerHTML = '';
+
+          let rendered = false;
+          if (typeof QRCode === 'function') {
+            try {
+              new QRCode(container, {
+                text: qrData,
+                width: 220,
+                height: 220,
+                colorDark: '#0a0020',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel ? QRCode.CorrectLevel.M : 0,
+              });
+              rendered = true;
+            } catch (qrErr) {
+              console.warn('Local QRCode render error:', qrErr);
+            }
+          }
+
+          if (!rendered) {
+            const img = document.createElement('img');
+            img.src = lastQrFallbackUrl;
+            img.alt = `Ticket QR Code - ${t.ticketId}`;
+            img.style.width = '220px';
+            img.style.height = '220px';
+            container.appendChild(img);
+          }
         } else {
           showError(data.error || 'Payment was not completed.');
         }
@@ -133,10 +167,21 @@
     }
 
     function downloadQR() {
-      const img = document.getElementById('ticketQR');
+      const container = document.getElementById('ticketQRContainer');
+      const canvas = container.querySelector('canvas');
+      const img = container.querySelector('img');
+      let href = '';
+      if (canvas) {
+        href = canvas.toDataURL('image/png');
+      } else if (img && img.src) {
+        href = img.src;
+      } else {
+        href = lastQrFallbackUrl;
+      }
+      if (!href) return;
       const a = document.createElement('a');
-      a.href = img.src;
-      a.download = `banda-ticket-${document.getElementById('tId').textContent.slice(0,8)}.png`;
+      a.href = href;
+      a.download = `banda-ticket-${document.getElementById('tId').textContent.trim()}.png`;
       a.click();
     }
 
