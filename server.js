@@ -468,9 +468,10 @@ const server = http.createServer(async (req, res) => {
       // 2. Build line item with correct tier name and price
       const lineItem = await getStripeLineItem(tierName, tierPrice);
 
-      // 3. Create hosted Checkout Session
+      // 3. Create hosted Checkout Session (instant card authorization only — checks sufficient funds in real time)
       const sessionParams = {
         mode: 'payment',
+        payment_method_types: ['card'],
         line_items: [lineItem],
         success_url: `${BASE_URL}/success.html?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${BASE_URL}/#tickets`,
@@ -482,24 +483,26 @@ const server = http.createServer(async (req, res) => {
 
       const session = await stripeRequest('POST', '/v1/checkout/sessions', sessionParams);
 
-      // 4. Persist pending ticket keyed by Stripe session ID
-      if (!db.pendingSessions) db.pendingSessions = {};
-      db.pendingSessions[session.id] = {
-        ticketId,
-        securityToken,
-        buyerName,
-        buyerEmail,
-        buyerPhone,
-        tier: tierName,
-        price: tierPrice,
-        purchasedAt: new Date().toISOString(),
-        checkedIn: false,
-        checkedInAt: null,
-        paymentStatus: 'STRIPE_PENDING',
-        method: 'CARD',
-        stripeSessionId: session.id,
-      };
-      saveDB(db);
+      // 4. Persist pending ticket keyed by Stripe session ID (under lock to avoid overwriting concurrent writes)
+      await withDBLock((lockedDb) => {
+        if (!lockedDb.pendingSessions) lockedDb.pendingSessions = {};
+        lockedDb.pendingSessions[session.id] = {
+          ticketId,
+          securityToken,
+          buyerName,
+          buyerEmail,
+          buyerPhone,
+          tier: tierName,
+          price: tierPrice,
+          purchasedAt: new Date().toISOString(),
+          checkedIn: false,
+          checkedInAt: null,
+          paymentStatus: 'STRIPE_PENDING',
+          method: 'CARD',
+          stripeSessionId: session.id,
+        };
+        saveDB(lockedDb);
+      });
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({
@@ -532,13 +535,21 @@ const server = http.createServer(async (req, res) => {
       event = body;
     }
 
-    if (event.type === 'checkout.session.completed') {
+    if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
       const session = event.data?.object || {};
       const sessionId = session.id;
-      console.log(`[STRIPE WEBHOOK] checkout.session.completed for session: ${sessionId}`);
+      console.log(`[STRIPE WEBHOOK] ${event.type} for session: ${sessionId} (payment_status=${session.payment_status})`);
+
+      // Strictly verify Stripe confirms actual funds captured (payment_status === 'paid')
+      if (session.payment_status !== 'paid') {
+        console.log(`[STRIPE WEBHOOK] Skipping session ${sessionId} — payment_status is "${session.payment_status}", not paid.`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ received: true, paid: false }));
+      }
 
       // --- MUTEX: prevent duplicate ticket creation from simultaneous webhooks ---
       let ticket;
+      let createdNewTicket = false;
       let emailConfig;
       let smsConfig;
       await withDBLock((db) => {
@@ -557,11 +568,13 @@ const server = http.createServer(async (req, res) => {
           db.tickets.push(ticket);
           delete db.pendingSessions[sessionId];
           saveDB(db);
+          createdNewTicket = true;
           console.log(`[MUTEX] Webhook ticket ${ticket.ticketId} written (total: ${db.tickets.length})`);
-        } else if (ticket) {
+        } else if (ticket && ticket.paymentStatus !== 'PAID') {
           ticket.paymentStatus = 'PAID';
           ticket.paidAt = ticket.paidAt || new Date().toISOString();
           saveDB(db);
+          createdNewTicket = true;
         }
         emailConfig = db.config?.email || {};
         smsConfig = {
@@ -572,8 +585,8 @@ const server = http.createServer(async (req, res) => {
         };
       });
 
-      // Send notifications outside the lock (async, non-blocking)
-      if (ticket) {
+      // Send notifications outside the lock only for newly confirmed tickets
+      if (createdNewTicket && ticket) {
         sendTicketReceipt(ticket, { ...emailConfig, venmoUsername: smsConfig.venmoUsername }, BASE_URL).catch(() => {});
         sendSmsReceipt(ticket, smsConfig, BASE_URL).catch(() => {});
       }
@@ -831,38 +844,17 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify({ error: 'Please enter a valid email address.' }));
     }
 
-    // Determine payment method
+    // Determine payment method — card payments MUST go through Stripe Checkout so real bank funds are verified
     const method = paymentMethod || 'card';
-
-    // Card-specific validation (only if paying by card)
-    let cardBrand = '';
-    let cardLast4 = '';
-    if (method === 'card') {
-      const rawCard = (cardNumber || '').replace(/\s+/g, '');
-      if (!rawCard || rawCard.length < 13) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ error: 'Please enter a valid 16-digit card number.' }));
-      }
-      if (!cardExp || !/^\d{2}\s*\/\s*\d{2,4}$/.test(cardExp.trim())) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ error: 'Please enter a valid expiration date (MM/YY).' }));
-      }
-      if (!cardCvc || cardCvc.length < 3) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ error: 'Please enter the 3 or 4 digit security code (CVC).' }));
-      }
-
-      // Restrict test cards (4242... and 4000...) to authorized chapter admins only
-      if (rawCard.startsWith('42424242') || rawCard.startsWith('400000')) {
-        if (!checkAdminAuth(req)) {
-          res.writeHead(403, { 'Content-Type': 'application/json' });
-          return res.end(JSON.stringify({ error: 'Test cards are restricted to authorized chapter administrators.' }));
-        }
-      }
-
-      cardBrand = detectCardBrand(rawCard);
-      cardLast4 = rawCard.slice(-4);
+    if (method !== 'venmo') {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({
+        error: 'Debit/Credit card purchases must go through secure Stripe Checkout so funds are verified in real time.',
+      }));
     }
+
+    const cardBrand = '';
+    const cardLast4 = '';
 
     // --- MUTEX: serialize ticket writes to prevent race conditions ---
     let purchaseResult;

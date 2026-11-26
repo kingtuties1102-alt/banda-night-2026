@@ -2611,26 +2611,20 @@
     let stripeCheckout = null;
     let stripeConfigured = false;
 
-    // On load, check if Stripe is configured and show the right card form
+    // Always keep Stripe Hosted Checkout active so every debit/credit card charge is verified for sufficient funds
     (async function detectStripe() {
+      document.getElementById('stripeInfoStep').style.display = 'block';
+      document.getElementById('cardPaymentForm').style.display = 'none';
       try {
         const res = await fetch('/api/tier');
         const cfg = await res.json();
-        stripeConfigured = Boolean(cfg.stripeConfigured && cfg.stripePublishableKey);
-        if (stripeConfigured) {
+        stripeConfigured = Boolean(cfg.stripeConfigured);
+        if (stripeConfigured && cfg.stripePublishableKey && typeof Stripe === 'function') {
           stripeInstance = Stripe(cfg.stripePublishableKey);
-          // Show Stripe button, hide legacy form
-          document.getElementById('stripeInfoStep').style.display = 'block';
-          document.getElementById('cardPaymentForm').style.display = 'none';
-        } else {
-          // Stripe not configured — fall back to legacy form
-          document.getElementById('stripeInfoStep').style.display = 'none';
-          document.getElementById('cardPaymentForm').style.display = 'block';
         }
       } catch (e) {
-        // If config fetch fails, show legacy form
-        document.getElementById('stripeInfoStep').style.display = 'none';
-        document.getElementById('cardPaymentForm').style.display = 'block';
+        // Hosted Checkout redirect via /api/create-checkout-session still works even without Stripe.js
+        console.warn('Stripe init note:', e.message);
       }
     })();
 
@@ -2658,9 +2652,13 @@
       btnText.textContent = 'Setting up secure payment...';
 
       try {
+        const headers = { 'Content-Type': 'application/json' };
+        const adminPin = sessionStorage.getItem('slb_admin_pin');
+        if (adminPin) headers['x-admin-pin'] = adminPin;
+
         const res = await fetch('/api/create-checkout-session', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ name, email, phone }),
         });
         const data = await res.json();
@@ -2726,11 +2724,7 @@
       } finally {
         btn.disabled = false;
         btnIcon.textContent = '🔒';
-        if (currentTierData) {
-          btnText.textContent = `Pay $${currentTierData.currentTier.price}.00 with Card · Get QR Ticket`;
-        } else {
-          btnText.textContent = 'Pay with Card · Get QR Ticket';
-        }
+        await fetchTierStatus();
       }
     }
 
