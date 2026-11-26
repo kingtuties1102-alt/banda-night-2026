@@ -1047,8 +1047,6 @@
       }
     }
 
-    async function saveVenmoConfig() {
-
     function updateTierDropUI(tierData) {
       const badge = document.getElementById('tierDropBadge');
       const desc = document.getElementById('tierDropDesc');
@@ -1127,7 +1125,8 @@
       }
     }
 
-    async function saveVenmoConfig() {      const username = document.getElementById('adminVenmoInput').value.trim();
+    async function saveVenmoConfig() {
+      const username = document.getElementById('adminVenmoInput').value.trim();
       const statusEl = document.getElementById('venmoSaveStatus');
       
       if (!username) {

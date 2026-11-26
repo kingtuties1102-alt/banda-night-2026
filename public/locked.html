@@ -297,12 +297,15 @@
   <div id="organizerModal">
     <div class="modal-box">
       <h3 style="font-family:'Cinzel',serif; font-size:1.3rem; margin-bottom:0.5rem; color:#ffffff;">Organizer Access</h3>
-      <p style="font-size:0.82rem; color:#94a3b8;">Enter the chapter passcode to preview the site or access dashboard.</p>
-      <input type="password" id="organizerPasscodeInput" placeholder="Passcode" autofocus onkeydown="if(event.key==='Enter') submitPasscode()">
+      <p style="font-size:0.82rem; color:#94a3b8;">Enter the chapter passcode to preview the site or open the Organizer Dashboard.</p>
+      <input type="password" id="organizerPasscodeInput" placeholder="Passcode" autofocus onkeydown="if(event.key==='Enter') submitPasscode('preview')">
       <div id="passcodeErr" style="color:#ef4444; font-size:0.8rem; margin-bottom:0.75rem; display:none;">Incorrect passcode</div>
-      <div style="display:flex; gap:0.5rem;">
-        <button onclick="submitPasscode()" style="flex:1; padding:0.75rem; background:linear-gradient(135deg,#9333ea,#d946ef); border:none; border-radius:8px; color:white; font-weight:700; cursor:pointer;">Enter</button>
-        <button onclick="closeOrganizerPrompt()" style="padding:0.75rem 1rem; background:rgba(255,255,255,0.08); border:none; border-radius:8px; color:#cbd5e1; cursor:pointer;">Cancel</button>
+      <div style="display:flex; flex-direction:column; gap:0.5rem;">
+        <div style="display:flex; gap:0.5rem;">
+          <button onclick="submitPasscode('preview')" style="flex:1; padding:0.75rem; background:linear-gradient(135deg,#9333ea,#d946ef); border:none; border-radius:8px; color:white; font-weight:700; cursor:pointer;">Preview Site</button>
+          <button onclick="submitPasscode('admin')" style="flex:1; padding:0.75rem; background:rgba(168,85,247,0.22); border:1px solid #a855f7; border-radius:8px; color:#e9d5ff; font-weight:700; cursor:pointer;">Dashboard</button>
+        </div>
+        <button onclick="closeOrganizerPrompt()" style="padding:0.65rem 1rem; background:rgba(255,255,255,0.08); border:none; border-radius:8px; color:#cbd5e1; cursor:pointer;">Cancel</button>
       </div>
     </div>
   </div>
@@ -317,16 +320,33 @@
       document.getElementById('passcodeErr').style.display = 'none';
       document.getElementById('organizerPasscodeInput').value = '';
     }
-    function submitPasscode() {
+    async function submitPasscode(target = 'preview') {
       const code = document.getElementById('organizerPasscodeInput').value.trim();
+      const errEl = document.getElementById('passcodeErr');
       if (!code) return;
-      // Check passcode against server via test PIN or direct preview redirect
-      if (code === 'betas1986') {
-        document.cookie = "slb_preview=" + encodeURIComponent(code) + "; path=/; max-age=86400";
-        sessionStorage.setItem('slb_admin_pin', code);
-        window.location.href = '/?preview=' + encodeURIComponent(code);
-      } else {
-        document.getElementById('passcodeErr').style.display = 'block';
+      errEl.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/admin/verify-pin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin: code })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          document.cookie = "slb_preview=" + encodeURIComponent(code) + "; path=/; max-age=86400; SameSite=Lax";
+          sessionStorage.setItem('slb_admin_pin', code);
+          if (target === 'admin') {
+            window.location.href = '/admin.html';
+          } else {
+            window.location.href = '/?preview=' + encodeURIComponent(code);
+          }
+        } else {
+          errEl.style.display = 'block';
+        }
+      } catch (err) {
+        errEl.textContent = 'Connection error. Please try again.';
+        errEl.style.display = 'block';
       }
     }
   </script>
