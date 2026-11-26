@@ -201,6 +201,27 @@ function saveDB(db) {
   }
 }
 
+// --- WRITE MUTEX ---
+// Prevents race conditions when multiple users purchase simultaneously.
+// All write operations are queued and executed one at a time.
+let _dbLockQueue = Promise.resolve();
+
+/**
+ * withDBLock(fn) — runs fn() exclusively, queuing any concurrent callers.
+ * fn receives a fresh loadDB() snapshot and must call saveDB() inside itself.
+ * Usage: const result = await withDBLock(db => { ...mutate db...; saveDB(db); return value; });
+ */
+function withDBLock(fn) {
+  _dbLockQueue = _dbLockQueue.then(() => {
+    const db = loadDB();
+    return Promise.resolve(fn(db)).catch(err => {
+      console.error('[DB Lock] Error inside locked operation:', err);
+      throw err;
+    });
+  });
+  return _dbLockQueue;
+}
+
 // --- TIER CONFIGURATION ---
 const TIERS = [
   { id: 'early', name: 'Early Bird', limit: 100, price: 15, desc: 'First 100 tickets' },
@@ -483,37 +504,45 @@ const server = http.createServer(async (req, res) => {
       const sessionId = session.id;
       console.log(`[STRIPE WEBHOOK] checkout.session.completed for session: ${sessionId}`);
 
-      const db = loadDB();
-      if (!db.pendingSessions) db.pendingSessions = {};
+      // --- MUTEX: prevent duplicate ticket creation from simultaneous webhooks ---
+      let ticket;
+      let emailConfig;
+      let smsConfig;
+      await withDBLock((db) => {
+        if (!db.pendingSessions) db.pendingSessions = {};
 
-      let ticket = (db.tickets || []).find(t => t.stripeSessionId === sessionId);
-      if (!ticket && db.pendingSessions[sessionId]) {
-        const pending = db.pendingSessions[sessionId];
-        ticket = {
-          ...pending,
-          paymentStatus: 'PAID',
-          paidAt: new Date().toISOString(),
-          stripeSessionId: sessionId,
-          method: 'CARD',
-        };
-        db.tickets.push(ticket);
-        delete db.pendingSessions[sessionId];
-        saveDB(db);
-
-        // Send notifications
-        const emailConfig = db.config?.email || {};
-        const smsConfig = {
+        ticket = (db.tickets || []).find(t => t.stripeSessionId === sessionId);
+        if (!ticket && db.pendingSessions[sessionId]) {
+          const pending = db.pendingSessions[sessionId];
+          ticket = {
+            ...pending,
+            paymentStatus: 'PAID',
+            paidAt: new Date().toISOString(),
+            stripeSessionId: sessionId,
+            method: 'CARD',
+          };
+          db.tickets.push(ticket);
+          delete db.pendingSessions[sessionId];
+          saveDB(db);
+          console.log(`[MUTEX] Webhook ticket ${ticket.ticketId} written (total: ${db.tickets.length})`);
+        } else if (ticket) {
+          ticket.paymentStatus = 'PAID';
+          ticket.paidAt = ticket.paidAt || new Date().toISOString();
+          saveDB(db);
+        }
+        emailConfig = db.config?.email || {};
+        smsConfig = {
           twilioAccountSid: db.config?.twilio?.accountSid || TWILIO_ACCOUNT_SID,
           twilioAuthToken:  db.config?.twilio?.authToken  || TWILIO_AUTH_TOKEN,
           twilioFromNumber: db.config?.twilio?.fromNumber || TWILIO_FROM_NUMBER,
           venmoUsername: db.config?.venmoUsername || VENMO_USERNAME,
         };
-        sendTicketReceipt(ticket, { ...emailConfig, venmoUsername: db.config?.venmoUsername || VENMO_USERNAME }, BASE_URL).catch(() => {});
+      });
+
+      // Send notifications outside the lock (async, non-blocking)
+      if (ticket) {
+        sendTicketReceipt(ticket, { ...emailConfig, venmoUsername: smsConfig.venmoUsername }, BASE_URL).catch(() => {});
         sendSmsReceipt(ticket, smsConfig, BASE_URL).catch(() => {});
-      } else if (ticket) {
-        ticket.paymentStatus = 'PAID';
-        ticket.paidAt = ticket.paidAt || new Date().toISOString();
-        saveDB(db);
       }
     }
 
@@ -613,31 +642,27 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify({ error: 'session_id required.' }));
     }
 
-    const db = loadDB();
-    if (!db.pendingSessions) db.pendingSessions = {};
-
-    // Check if already finalized (idempotent)
-    const existing = db.tickets.find(t => t.stripeSessionId === session_id);
+    // Quick read-only check first (outside lock, idempotent fast path)
+    const dbCheck = loadDB();
+    const existing = dbCheck.tickets.find(t => t.stripeSessionId === session_id);
     if (existing) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ success: true, ticket: existing }));
     }
-
-    const pending = db.pendingSessions[session_id];
-    if (!pending) {
+    if (!dbCheck.pendingSessions?.[session_id]) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ error: 'Session not found.' }));
     }
 
     try {
-      // Verify payment status with Stripe
+      // Verify payment status with Stripe before acquiring lock
       const session = await stripeRequest('GET', `/v1/checkout/sessions/${session_id}`, {});
       if (session.payment_status !== 'paid') {
         res.writeHead(402, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ error: 'Payment not yet confirmed by Stripe.' }));
       }
 
-      // Extract card details from payment intent
+      // Extract card details from payment intent (outside lock — network call)
       let cardBrand = '';
       let cardLast4 = '';
       if (session.payment_intent) {
@@ -648,34 +673,58 @@ const server = http.createServer(async (req, res) => {
         } catch (_) { /* non-fatal */ }
       }
 
-      const ticket = {
-        ...pending,
-        paymentStatus: 'PAID',
-        paidAt: new Date().toISOString(),
-        cardBrand,
-        cardLast4,
-        stripeSessionId: session_id,
-        method: 'CARD',
-      };
+      // --- MUTEX: serialize ticket finalization to prevent duplicate writes ---
+      let ticket;
+      let emailConfig;
+      let smsConfig;
+      await withDBLock((db) => {
+        if (!db.pendingSessions) db.pendingSessions = {};
 
-      db.tickets.push(ticket);
-      delete db.pendingSessions[session_id];
-      saveDB(db);
+        // Double-check inside lock (another request may have beaten us here)
+        const alreadyDone = db.tickets.find(t => t.stripeSessionId === session_id);
+        if (alreadyDone) { ticket = alreadyDone; return; }
 
-      // Send email + SMS receipts
-      const emailConfig = db.config?.email || {};
-      const smsConfig = {
-        twilioAccountSid: db.config?.twilio?.accountSid || TWILIO_ACCOUNT_SID,
-        twilioAuthToken:  db.config?.twilio?.authToken  || TWILIO_AUTH_TOKEN,
-        twilioFromNumber: db.config?.twilio?.fromNumber || TWILIO_FROM_NUMBER,
-        venmoUsername: db.config?.venmoUsername || VENMO_USERNAME,
-      };
-      sendTicketReceipt(ticket, { ...emailConfig, venmoUsername: db.config?.venmoUsername || VENMO_USERNAME }, BASE_URL)
-        .then(r => { ticket.emailStatus = r.simulated ? 'SIMULATED' : 'SENT'; ticket.emailSentAt = new Date().toISOString(); saveDB(db); })
-        .catch(e => { ticket.emailStatus = 'FAILED'; ticket.emailError = e.message; saveDB(db); });
-      sendSmsReceipt(ticket, smsConfig, BASE_URL)
-        .then(r => { if (!r.skipped) { ticket.smsStatus = 'SENT'; ticket.smsSentAt = new Date().toISOString(); saveDB(db); } })
-        .catch(e => { ticket.smsStatus = 'FAILED'; ticket.smsError = e.message; saveDB(db); });
+        const pending = db.pendingSessions[session_id];
+        if (!pending) { return; } // Session was cleaned up between checks
+
+        ticket = {
+          ...pending,
+          paymentStatus: 'PAID',
+          paidAt: new Date().toISOString(),
+          cardBrand,
+          cardLast4,
+          stripeSessionId: session_id,
+          method: 'CARD',
+        };
+
+        db.tickets.push(ticket);
+        delete db.pendingSessions[session_id];
+        saveDB(db);
+        console.log(`[MUTEX] checkout-complete ticket ${ticket.ticketId} written (total: ${db.tickets.length})`);
+
+        emailConfig = db.config?.email || {};
+        smsConfig = {
+          twilioAccountSid: db.config?.twilio?.accountSid || TWILIO_ACCOUNT_SID,
+          twilioAuthToken:  db.config?.twilio?.authToken  || TWILIO_AUTH_TOKEN,
+          twilioFromNumber: db.config?.twilio?.fromNumber || TWILIO_FROM_NUMBER,
+          venmoUsername: db.config?.venmoUsername || VENMO_USERNAME,
+        };
+      });
+
+      if (!ticket) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Session not found or already processed.' }));
+      }
+
+      // Send email + SMS receipts outside the lock (async, non-blocking)
+      if (emailConfig) {
+        sendTicketReceipt(ticket, { ...emailConfig, venmoUsername: smsConfig?.venmoUsername || VENMO_USERNAME }, BASE_URL)
+          .then(r => { ticket.emailStatus = r.simulated ? 'SIMULATED' : 'SENT'; ticket.emailSentAt = new Date().toISOString(); saveDB(loadDB()); })
+          .catch(e => { ticket.emailStatus = 'FAILED'; ticket.emailError = e.message; });
+        sendSmsReceipt(ticket, smsConfig, BASE_URL)
+          .then(r => { if (!r.skipped) { ticket.smsStatus = 'SENT'; ticket.smsSentAt = new Date().toISOString(); } })
+          .catch(e => { ticket.smsStatus = 'FAILED'; ticket.smsError = e.message; });
+      }
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ success: true, ticket }));
@@ -738,35 +787,46 @@ const server = http.createServer(async (req, res) => {
       cardLast4 = rawCard.slice(-4);
     }
 
-    const db = loadDB();
-    const info = getCurrentTierInfo(db);
-    const tier = info.currentTier;
+    // --- MUTEX: serialize ticket writes to prevent race conditions ---
+    let ticket;
+    try {
+      ticket = await withDBLock((db) => {
+        const info = getCurrentTierInfo(db);
+        const tier = info.currentTier;
 
-    const ticketId = 'SLB-' + crypto.randomBytes(6).toString('hex').toUpperCase();
-    const securityToken = crypto.randomBytes(16).toString('hex');
+        const ticketId = 'SLB-' + crypto.randomBytes(6).toString('hex').toUpperCase();
+        const securityToken = crypto.randomBytes(16).toString('hex');
 
-    const ticket = {
-      ticketId,
-      securityToken,
-      buyerName: name.trim(),
-      buyerEmail: email.trim().toLowerCase(),
-      buyerPhone: (phone || '').trim(),
-      tier: tier.name,
-      price: tier.price,
-      cardBrand: cardBrand || '',
-      cardLast4: cardLast4 || '',
-      purchasedAt: new Date().toISOString(),
-      checkedIn: false,
-      checkedInAt: null,
-      paymentStatus: method === 'venmo' ? 'VENMO_PENDING' : 'PAID',
-      method: method.toUpperCase(),
-      emailStatus: 'SENDING',
-      emailSentAt: null,
-      emailError: null,
-    };
+        const newTicket = {
+          ticketId,
+          securityToken,
+          buyerName: name.trim(),
+          buyerEmail: email.trim().toLowerCase(),
+          buyerPhone: (phone || '').trim(),
+          tier: tier.name,
+          price: tier.price,
+          cardBrand: cardBrand || '',
+          cardLast4: cardLast4 || '',
+          purchasedAt: new Date().toISOString(),
+          checkedIn: false,
+          checkedInAt: null,
+          paymentStatus: method === 'venmo' ? 'VENMO_PENDING' : 'PAID',
+          method: method.toUpperCase(),
+          emailStatus: 'SENDING',
+          emailSentAt: null,
+          emailError: null,
+        };
 
-    db.tickets.push(ticket);
-    saveDB(db);
+        db.tickets.push(newTicket);
+        saveDB(db);
+        console.log(`[MUTEX] Ticket ${ticketId} written (total: ${db.tickets.length})`);
+        return newTicket;
+      });
+    } catch (lockErr) {
+      console.error('[MUTEX ERROR] purchase lock failed:', lockErr.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Server error processing purchase. Please try again.' }));
+    }
 
     // Asynchronously dispatch email receipt to attendee
     const emailConfig = db.config?.email || {};
