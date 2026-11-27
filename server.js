@@ -473,7 +473,7 @@ const server = http.createServer(async (req, res) => {
       // 3. Create hosted Checkout Session (instant card authorization only — checks sufficient funds in real time)
       const sessionParams = {
         mode: 'payment',
-        payment_method_types: ['card'],
+        allowed_payment_method_types: ['card'],
         line_items: [lineItem],
         success_url: `${BASE_URL}/success.html?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${BASE_URL}/#tickets`,
@@ -1302,7 +1302,7 @@ const server = http.createServer(async (req, res) => {
       const lineItem = await getStripeLineItem('Diagnostic Test', 15);
       const session = await stripeRequest('POST', '/v1/checkout/sessions', {
         mode: 'payment',
-        payment_method_types: ['card'],
+        allowed_payment_method_types: ['card'],
         line_items: [lineItem],
         success_url: `${BASE_URL}/success.html?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${BASE_URL}/#tickets`,
