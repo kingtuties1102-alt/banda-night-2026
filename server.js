@@ -470,10 +470,9 @@ const server = http.createServer(async (req, res) => {
       // 2. Build line item with correct tier name and price
       const lineItem = await getStripeLineItem(tierName, tierPrice);
 
-      // 3. Create hosted Checkout Session (instant card authorization only — checks sufficient funds in real time)
+      // 3. Create hosted Checkout Session (Stripe verifies payment & funds before returning payment_status='paid')
       const sessionParams = {
         mode: 'payment',
-        allowed_payment_method_types: ['card'],
         line_items: [lineItem],
         success_url: `${BASE_URL}/success.html?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${BASE_URL}/#tickets`,
@@ -1302,7 +1301,6 @@ const server = http.createServer(async (req, res) => {
       const lineItem = await getStripeLineItem('Diagnostic Test', 15);
       const session = await stripeRequest('POST', '/v1/checkout/sessions', {
         mode: 'payment',
-        allowed_payment_method_types: ['card'],
         line_items: [lineItem],
         success_url: `${BASE_URL}/success.html?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${BASE_URL}/#tickets`,
