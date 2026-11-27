@@ -69,16 +69,19 @@ function stripeRequest(method, path, body, apiVersion) {
       ? '?' + new URLSearchParams(flattenForStripe(body)).toString()
       : '';
     const payload = !isGet && body ? new URLSearchParams(flattenForStripe(body)).toString() : '';
+    const headers = {
+      'Authorization': `Bearer ${getStripeConfig(loadDB()).secretKey}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Length': Buffer.byteLength(payload),
+    };
+    if (apiVersion) {
+      headers['Stripe-Version'] = apiVersion;
+    }
     const req = https.request({
       hostname: 'api.stripe.com',
       path: path + queryStr,
       method,
-      headers: {
-        'Authorization': `Bearer ${getStripeConfig(loadDB()).secretKey}`, 
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Content-Length': Buffer.byteLength(payload),
-        'Stripe-Version': apiVersion || '2026-02-25.preview',
-      },
+      headers,
       timeout: 15000,
     }, (res) => {
       let data = '';
@@ -116,7 +119,6 @@ async function getStripeLineItem(tierName, priceInDollars) {
       product_data: {
         name: `Banda Night 2027 — ${tierName} Admission`,
         description: 'Sigma Lambda Beta · Sigma Gamma Chapter · Saturday, January 9th, 2027 · Doors 9:00 PM PST',
-        tax_code: 'txcd_10103100',
       },
     },
     quantity: 1,
@@ -477,7 +479,7 @@ const server = http.createServer(async (req, res) => {
         cancel_url: `${BASE_URL}/#tickets`,
       };
 
-      if (buyerEmail && buyerEmail.includes('@')) {
+      if (buyerEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(buyerEmail)) {
         sessionParams.customer_email = buyerEmail;
       }
 
@@ -1243,12 +1245,14 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify({ error: 'Unauthorized.' }));
     }
     const body = await parseBody(req);
-    const db = loadDB();
-    if (!db.config) db.config = {};
-    const current = isSiteLocked(db);
-    const nextState = typeof body.locked === 'boolean' ? body.locked : !current;
-    db.config.siteLocked = nextState;
-    saveDB(db);
+    const nextState = await withDBLock((db) => {
+      if (!db.config) db.config = {};
+      const current = isSiteLocked(db);
+      const next = typeof body.locked === 'boolean' ? body.locked : !current;
+      db.config.siteLocked = next;
+      saveDB(db);
+      return next;
+    });
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ success: true, siteLocked: nextState }));
   }
@@ -1259,24 +1263,93 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(401, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ error: 'Unauthorized.' }));
     }
-    const db = loadDB();
-    if (!db.config) db.config = {};
-    const currentMax = typeof db.config.maxActiveTierIndex === 'number' ? db.config.maxActiveTierIndex : 0;
-    if (currentMax >= TIERS.length - 1) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ error: 'All tiers are already open. No more tiers to unlock.' }));
+    let result;
+    try {
+      result = await withDBLock((db) => {
+        if (!db.config) db.config = {};
+        const currentMax = typeof db.config.maxActiveTierIndex === 'number' ? db.config.maxActiveTierIndex : 0;
+        if (currentMax >= TIERS.length - 1) {
+          throw Object.assign(new Error('All tiers are already open. No more tiers to unlock.'), { statusCode: 400 });
+        }
+        const newMax = currentMax + 1;
+        db.config.maxActiveTierIndex = newMax;
+        saveDB(db);
+        console.log(`[TIER DROP] Tier unlocked to index ${newMax}: ${TIERS[newMax].name} ($${TIERS[newMax].price})`);
+        return {
+          success: true,
+          unlockedTier: TIERS[newMax],
+          maxActiveTierIndex: newMax,
+          message: `${TIERS[newMax].name} ($${TIERS[newMax].price}) is now open for purchase!`,
+        };
+      });
+    } catch (err) {
+      res.writeHead(err.statusCode || 500, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: err.message }));
     }
-    const newMax = currentMax + 1;
-    db.config.maxActiveTierIndex = newMax;
-    saveDB(db);
-    console.log(`[TIER DROP] Tier unlocked to index ${newMax}: ${TIERS[newMax].name} ($${TIERS[newMax].price})`);
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({
-      success: true,
-      unlockedTier: TIERS[newMax],
-      maxActiveTierIndex: newMax,
-      message: `${TIERS[newMax].name} ($${TIERS[newMax].price}) is now open for purchase!`,
-    }));
+    return res.end(JSON.stringify(result));
+  }
+
+  // --- API: Admin Test Stripe Checkout Session Creation ---
+  if (pathname === '/api/admin/test-stripe' && req.method === 'POST') {
+    const db_chk = loadDB();
+    const stripeCfg = getStripeConfig(db_chk);
+    if (!stripeCfg.configured) {
+      res.writeHead(503, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ success: false, error: 'Stripe secret key is not configured.' }));
+    }
+    try {
+      const lineItem = await getStripeLineItem('Diagnostic Test', 15);
+      const session = await stripeRequest('POST', '/v1/checkout/sessions', {
+        mode: 'payment',
+        payment_method_types: ['card'],
+        line_items: [lineItem],
+        success_url: `${BASE_URL}/success.html?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${BASE_URL}/#tickets`,
+      });
+      // Immediately expire the diagnostic session so it can never be paid
+      if (session?.id) {
+        await stripeRequest('POST', `/v1/checkout/sessions/${session.id}/expire`, {}).catch(() => {});
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({
+        success: true,
+        sessionId: session.id,
+        hasUrl: Boolean(session.url),
+        livemode: Boolean(session.livemode),
+        message: 'Stripe Checkout session created & verified successfully!',
+      }));
+    } catch (err) {
+      console.error('[STRIPE DIAGNOSTIC ERROR]', err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ success: false, error: err.message }));
+    }
+  }
+
+  // --- API: Admin Restore Tickets Backup ---
+  if (pathname === '/api/admin/restore-tickets' && req.method === 'POST') {
+    const body = await parseBody(req);
+    if (!Array.isArray(body.tickets)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'tickets array required.' }));
+    }
+    const restoredCount = await withDBLock((db) => {
+      if (!db.config) db.config = {};
+      // Preserve chronological order (oldest first) while keeping unique ticketIds
+      const existingIds = new Set((db.tickets || []).map(t => t.ticketId));
+      const toAdd = [...body.tickets].reverse().filter(t => t && t.ticketId && !existingIds.has(t.ticketId));
+      db.tickets = [...(db.tickets || []), ...toAdd];
+      if (typeof body.maxActiveTierIndex === 'number') {
+        db.config.maxActiveTierIndex = body.maxActiveTierIndex;
+      }
+      if (typeof body.siteLocked === 'boolean') {
+        db.config.siteLocked = body.siteLocked;
+      }
+      saveDB(db);
+      return db.tickets.length;
+    });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ success: true, totalTickets: restoredCount }));
   }
 
   // --- API: Admin Send Test Email ---
