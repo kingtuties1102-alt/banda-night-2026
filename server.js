@@ -1337,10 +1337,14 @@ const server = http.createServer(async (req, res) => {
     }
     const restoredCount = await withDBLock((db) => {
       if (!db.config) db.config = {};
-      // Preserve chronological order (oldest first) while keeping unique ticketIds
-      const existingIds = new Set((db.tickets || []).map(t => t.ticketId));
-      const toAdd = [...body.tickets].reverse().filter(t => t && t.ticketId && !existingIds.has(t.ticketId));
-      db.tickets = [...(db.tickets || []), ...toAdd];
+      if (body.overwrite === true) {
+        db.tickets = [...body.tickets].reverse().filter(t => t && t.ticketId);
+      } else {
+        // Preserve chronological order (oldest first) while keeping unique ticketIds
+        const existingIds = new Set((db.tickets || []).map(t => t.ticketId));
+        const toAdd = [...body.tickets].reverse().filter(t => t && t.ticketId && !existingIds.has(t.ticketId));
+        db.tickets = [...(db.tickets || []), ...toAdd];
+      }
       if (typeof body.maxActiveTierIndex === 'number') {
         db.config.maxActiveTierIndex = body.maxActiveTierIndex;
       }
