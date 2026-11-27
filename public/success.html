@@ -136,6 +136,7 @@
                 colorLight: '#ffffff',
                 correctLevel: QRCode.CorrectLevel ? QRCode.CorrectLevel.M : 0,
               });
+              container.removeAttribute('title');
               rendered = true;
             } catch (qrErr) {
               console.warn('Local QRCode render error:', qrErr);

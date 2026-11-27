@@ -1300,7 +1300,6 @@
       height: 200px !important;
       max-width: 200px !important;
       max-height: 200px !important;
-      display: block !important;
       margin: 0 auto !important;
       flex-shrink: 0;
     }
@@ -2489,6 +2488,7 @@
                   colorLight: '#ffffff',
                   correctLevel: QRCode.CorrectLevel.M,
                 });
+                qrWrap.removeAttribute('title');
                 setTimeout(() => {
                   const canv = qrWrap.querySelector('canvas');
                   const img = qrWrap.querySelector('img');
