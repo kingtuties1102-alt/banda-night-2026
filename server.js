@@ -176,30 +176,128 @@ function flattenForStripe(obj, prefix = '') {
 // Default Venmo username if not set in config
 let VENMO_USERNAME = process.env.VENMO_USERNAME || 'Betas_UCSB';
 
-// --- DATABASE HELPERS ---
-function loadDB() {
+// --- DATABASE HELPERS (PostgreSQL when DATABASE_URL is set, local JSON fallback) ---
+let pgModule = null;
+try { pgModule = require('pg'); } catch (_) { pgModule = null; }
+
+let pgPool = null;
+let _dbCache = null;
+let _pgWriteQueue = Promise.resolve();
+let _pgError = null;
+
+function normalizeDB(data) {
+  const out = data && typeof data === 'object' ? data : {};
+  if (!Array.isArray(out.tickets)) out.tickets = [];
+  if (!out.pendingSessions || typeof out.pendingSessions !== 'object') out.pendingSessions = {};
+  if (!out.config || typeof out.config !== 'object') out.config = { venmoUsername: VENMO_USERNAME };
+  return out;
+}
+
+function loadDBFromFile() {
   try {
     if (!fs.existsSync(DB_PATH)) {
-      const initial = { tickets: [], pendingSessions: {}, config: { venmoUsername: VENMO_USERNAME } };
+      const initial = normalizeDB({ tickets: [], pendingSessions: {}, config: { venmoUsername: VENMO_USERNAME } });
       fs.writeFileSync(DB_PATH, JSON.stringify(initial, null, 2));
       return initial;
     }
     const data = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
-    if (!data.tickets) data.tickets = [];
-    if (!data.pendingSessions) data.pendingSessions = {};
-    if (!data.config) data.config = { venmoUsername: VENMO_USERNAME };
-    return data;
+    return normalizeDB(data);
   } catch (err) {
-    console.error('Error reading database:', err);
-    return { tickets: [], pendingSessions: {}, config: { venmoUsername: VENMO_USERNAME } };
+    console.error('Error reading local database:', err);
+    return normalizeDB({});
   }
 }
 
-function saveDB(db) {
+async function initDB() {
+  _dbCache = loadDBFromFile();
+  const dbUrl = (process.env.DATABASE_URL || '').trim();
+  if (!dbUrl) {
+    console.log('[DB] Running in local file mode (DATABASE_URL not set).');
+    return;
+  }
+  if (!pgModule) {
+    _pgError = 'pg package not installed';
+    console.error('[DB] DATABASE_URL is set, but `pg` package is not installed. Run `npm install`.');
+    return;
+  }
+
+  const { Pool } = pgModule;
+  const preferSsl = dbUrl.includes('.render.com') || dbUrl.includes('sslmode=require') || dbUrl.includes('supabase') || dbUrl.includes('neon.tech');
+
+  async function tryConnect(useSsl) {
+    const candidate = new Pool({
+      connectionString: dbUrl,
+      ssl: useSsl ? { rejectUnauthorized: false } : false,
+      max: 5,
+      connectionTimeoutMillis: 8000,
+    });
+    await candidate.query(`
+      CREATE TABLE IF NOT EXISTS app_state (
+        id TEXT PRIMARY KEY,
+        data JSONB NOT NULL,
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    return candidate;
+  }
+
   try {
-    fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
+    try {
+      pgPool = await tryConnect(preferSsl);
+    } catch (firstErr) {
+      // Retry with opposite SSL setting (covers internal vs external Render Postgres URLs)
+      pgPool = await tryConnect(!preferSsl);
+    }
+
+    const res = await pgPool.query('SELECT data FROM app_state WHERE id = $1', ['main']);
+    if (res.rows.length > 0 && res.rows[0].data) {
+      _dbCache = normalizeDB(res.rows[0].data);
+      try { fs.writeFileSync(DB_PATH, JSON.stringify(_dbCache, null, 2)); } catch (_) {}
+      console.log(`[DB] Connected to PostgreSQL — loaded ${_dbCache.tickets.length} tickets.`);
+    } else {
+      await pgPool.query(
+        'INSERT INTO app_state (id, data, updated_at) VALUES ($1, $2::jsonb, NOW()) ON CONFLICT (id) DO UPDATE SET data = $2::jsonb, updated_at = NOW()',
+        ['main', JSON.stringify(_dbCache)]
+      );
+      console.log(`[DB] Connected to PostgreSQL — seeded ${_dbCache.tickets.length} tickets from file.`);
+    }
+    _pgError = null;
   } catch (err) {
-    console.error('Error saving database:', err);
+    _pgError = err.message;
+    console.error('[DB] PostgreSQL connection failed, falling back to local file:', err.message);
+    if (pgPool) {
+      try { await pgPool.end(); } catch (_) {}
+      pgPool = null;
+    }
+  }
+}
+
+function loadDB() {
+  if (_dbCache) return _dbCache;
+  _dbCache = loadDBFromFile();
+  return _dbCache;
+}
+
+function saveDB(db) {
+  const normalized = normalizeDB(db);
+  _dbCache = normalized;
+  try {
+    fs.writeFileSync(DB_PATH, JSON.stringify(normalized, null, 2));
+  } catch (err) {
+    console.error('Error saving local database:', err);
+  }
+  if (pgPool) {
+    const snapshot = JSON.stringify(normalized);
+    const writePromise = _pgWriteQueue.then(() =>
+      pgPool.query(
+        'INSERT INTO app_state (id, data, updated_at) VALUES ($1, $2::jsonb, NOW()) ON CONFLICT (id) DO UPDATE SET data = $2::jsonb, updated_at = NOW()',
+        ['main', snapshot]
+      )
+    );
+    _pgWriteQueue = writePromise.catch(err => {
+      _pgError = err.message;
+      console.error('[DB] PostgreSQL write error:', err.message);
+    });
   }
 }
 
@@ -210,13 +308,16 @@ let _dbLockQueue = Promise.resolve();
 
 /**
  * withDBLock(fn) — runs fn() exclusively, queuing any concurrent callers.
- * fn receives a fresh loadDB() snapshot and must call saveDB() inside itself.
- * Usage: const result = await withDBLock(db => { ...mutate db...; saveDB(db); return value; });
+ * fn receives loadDB() and if pgPool is enabled, waits for Postgres persistence before releasing.
  */
 function withDBLock(fn) {
-  const result = _dbLockQueue.then(() => {
+  const result = _dbLockQueue.then(async () => {
     const db = loadDB();
-    return Promise.resolve(fn(db));
+    const val = await Promise.resolve(fn(db));
+    if (pgPool) {
+      await _pgWriteQueue;
+    }
+    return val;
   });
   // Always keep the shared queue resolved so one rejected write never poisons subsequent callers
   _dbLockQueue = result.catch((err) => {
@@ -1173,6 +1274,12 @@ const server = http.createServer(async (req, res) => {
         hasSecretKey: Boolean(getStripeConfig(db).secretKey),
         configured: getStripeConfig(db).configured,
       },
+      storage: {
+        backend: pgPool ? 'postgres' : 'file',
+        pgInstalled: Boolean(pgModule),
+        hasDatabaseUrl: Boolean((process.env.DATABASE_URL || '').trim()),
+        error: _pgError || null,
+      },
     }));
   }
 
@@ -1635,12 +1742,17 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`\n🎺 BANDA NIGHT 2027 TICKET PLATFORM`);
-  console.log(`===============================================`);
-  console.log(`✨ Main Event Page:   http://localhost:${PORT}`);
-  console.log(`📊 Admin Dashboard:   http://localhost:${PORT}/admin.html`);
-  console.log(`🔍 Door Scanner:      http://localhost:${PORT}/scanner.html`);
-  console.log(`💳 Card Payments:     Integrated & Ready (Instant Ticket + QR)`);
-  console.log(`===============================================\n`);
-});
+initDB()
+  .catch(err => console.error('[DB] Startup init error:', err.message))
+  .finally(() => {
+    server.listen(PORT, () => {
+      console.log(`\n🎺 BANDA NIGHT 2027 TICKET PLATFORM`);
+      console.log(`===============================================`);
+      console.log(`💾 Storage Backend:   ${pgPool ? 'PostgreSQL (Permanent)' : 'Local JSON File'}`);
+      console.log(`✨ Main Event Page:   http://localhost:${PORT}`);
+      console.log(`📊 Admin Dashboard:   http://localhost:${PORT}/admin.html`);
+      console.log(`🔍 Door Scanner:      http://localhost:${PORT}/scanner.html`);
+      console.log(`💳 Card Payments:     Integrated & Ready (Instant Ticket + QR)`);
+      console.log(`===============================================\n`);
+    });
+  });
