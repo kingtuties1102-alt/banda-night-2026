@@ -67,32 +67,101 @@ function sendViaResend({ apiKey, from, to, subject, html, text }) {
 }
 
 /**
+ * Parse "Display Name <email@domain.com>" into { fromName, fromEmail }
+ */
+function parseSenderIdentity(from, fallbackEmail = 'tuties1102@icloud.com') {
+  let fromEmail = from || fallbackEmail;
+  let fromName = 'Sigma Lambda Beta - Banda Night';
+
+  const matchWithName = fromEmail.match(/^([^<]+)<([^>]+)>$/);
+  if (matchWithName) {
+    fromName = matchWithName[1].trim() || fromName;
+    fromEmail = matchWithName[2].trim();
+  } else {
+    const emailMatch = fromEmail.match(/<([^>]+)>/);
+    if (emailMatch) {
+      fromEmail = emailMatch[1].trim();
+    }
+  }
+  fromEmail = fromEmail.trim();
+
+  if (!fromEmail || fromEmail.includes('resend.dev') || fromEmail.includes('example.com') || fromEmail.includes('sigmagamma.org')) {
+    fromEmail = fallbackEmail;
+  }
+  return { fromName, fromEmail };
+}
+
+/**
+ * Post JSON payload to an email provider HTTPS API
+ */
+function postEmailJson({ url, headers, payload, provider }) {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify(payload);
+    const req = https.request(url, {
+      method: 'POST',
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      },
+      timeout: 12000,
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve({ success: true, provider });
+        } else {
+          reject(new Error(`${provider} HTTP ${res.statusCode}: ${data}`));
+        }
+      });
+    });
+
+    req.on('error', reject);
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error(`${provider} request timed out after 12s`));
+    });
+    req.write(body);
+    req.end();
+  });
+}
+
+/**
+ * Send an email via Brevo Transactional API (300 emails/day free)
+ */
+function sendViaBrevo({ apiKey, from, to, subject, html, text }) {
+  const { fromName, fromEmail } = parseSenderIdentity(from);
+  return postEmailJson({
+    url: 'https://api.brevo.com/v3/smtp/email',
+    headers: {
+      'api-key': apiKey,
+      'accept': 'application/json',
+    },
+    provider: 'brevo',
+    payload: {
+      sender: { name: fromName, email: fromEmail },
+      to: [{ email: to }],
+      replyTo: { email: fromEmail, name: fromName },
+      subject,
+      htmlContent: html,
+      textContent: text || 'Banda Night 2027 Ticket Receipt',
+    },
+  });
+}
+
+/**
  * Send an email via SendGrid API
  */
 function sendViaSendgrid({ apiKey, from, to, subject, html, text }) {
-  return new Promise((resolve, reject) => {
-    let fromEmail = from || 'tuties1102@icloud.com';
-    let fromName = 'Sigma Lambda Beta - Banda Night';
-
-    const matchWithName = fromEmail.match(/^([^<]+)<([^>]+)>$/);
-    if (matchWithName) {
-      fromName = matchWithName[1].trim() || fromName;
-      fromEmail = matchWithName[2].trim();
-    } else {
-      const emailMatch = fromEmail.match(/<([^>]+)>/);
-      if (emailMatch) {
-        fromEmail = emailMatch[1].trim();
-      }
-    }
-    fromEmail = fromEmail.trim();
-
-    // SendGrid requires a sender address that is verified in SendGrid.
-    // If fromEmail is blank, an unverified template domain, or resend.dev, default to tuties1102@icloud.com
-    if (!fromEmail || fromEmail.includes('resend.dev') || fromEmail.includes('example.com') || fromEmail.includes('sigmagamma.org')) {
-      fromEmail = 'tuties1102@icloud.com';
-    }
-
-    const payload = JSON.stringify({
+  const { fromName, fromEmail } = parseSenderIdentity(from);
+  return postEmailJson({
+    url: 'https://api.sendgrid.com/v3/mail/send',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    provider: 'sendgrid',
+    payload: {
       personalizations: [{ to: [{ email: to }] }],
       from: { email: fromEmail, name: fromName },
       reply_to: { email: fromEmail, name: fromName },
@@ -101,35 +170,7 @@ function sendViaSendgrid({ apiKey, from, to, subject, html, text }) {
         { type: 'text/plain', value: text || 'Banda Night 2027 Ticket Receipt' },
         { type: 'text/html', value: html },
       ],
-    });
-
-    const req = https.request('https://api.sendgrid.com/v3/mail/send', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(payload),
-      },
-      timeout: 12000,
-    }, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          resolve({ success: true, provider: 'sendgrid' });
-        } else {
-          reject(new Error(`SendGrid HTTP ${res.statusCode}: ${data}`));
-        }
-      });
-    });
-
-    req.on('error', reject);
-    req.on('timeout', () => {
-      req.destroy();
-      reject(new Error('SendGrid request timed out after 12s'));
-    });
-    req.write(payload);
-    req.end();
+    },
   });
 }
 
@@ -342,14 +383,31 @@ function sendViaSmtp({ host, port, user, pass, from, to, subject, html, text }) 
  * Dispatch an email using the active configuration
  */
 async function sendEmail({ to, subject, html, text, config = {} }) {
-  const rawKey = (config.resendApiKey || config.sendgridApiKey || process.env.RESEND_API_KEY || process.env.SENDGRID_API_KEY || '').trim();
+  const rawKey = (
+    config.brevoApiKey || config.resendApiKey || config.sendgridApiKey ||
+    process.env.BREVO_API_KEY || process.env.RESEND_API_KEY || process.env.SENDGRID_API_KEY || ''
+  ).trim();
+  const isBrevo = rawKey.startsWith('xkeysib-');
   const isSendGrid = rawKey.startsWith('SG.');
   const isResend = rawKey.startsWith('re_');
   const smtpHost = config.smtpHost || process.env.SMTP_HOST;
   const fromEmail = (config.fromEmail || process.env.FROM_EMAIL || 'tuties1102@icloud.com').trim();
 
-  // 1. SendGrid API (Auto-detected if key starts with SG.)
-  if (isSendGrid || config.sendgridApiKey || process.env.SENDGRID_API_KEY) {
+  // 1. Brevo API (Auto-detected if key starts with xkeysib-) — 300/day free
+  if (isBrevo || config.brevoApiKey || (!isSendGrid && !isResend && process.env.BREVO_API_KEY)) {
+    const key = isBrevo ? rawKey : (config.brevoApiKey || process.env.BREVO_API_KEY);
+    return await sendViaBrevo({
+      apiKey: key,
+      from: fromEmail,
+      to,
+      subject,
+      html,
+      text,
+    });
+  }
+
+  // 2. SendGrid API (Auto-detected if key starts with SG.)
+  if (isSendGrid || config.sendgridApiKey || (!isResend && process.env.SENDGRID_API_KEY)) {
     const key = isSendGrid ? rawKey : (config.sendgridApiKey || process.env.SENDGRID_API_KEY);
     return await sendViaSendgrid({
       apiKey: key,
@@ -361,7 +419,7 @@ async function sendEmail({ to, subject, html, text, config = {} }) {
     });
   }
 
-  // 2. Resend API
+  // 3. Resend API
   if (isResend || (rawKey && !smtpHost)) {
     const key = isResend ? rawKey : (config.resendApiKey || process.env.RESEND_API_KEY);
     const fromAddr = (fromEmail && !fromEmail.includes('@icloud.com') && !fromEmail.includes('@gmail.com'))
@@ -377,8 +435,8 @@ async function sendEmail({ to, subject, html, text, config = {} }) {
     });
   }
 
-  // 3. SMTP (Gmail or custom server, used only if no API key is provided)
-  if (smtpHost && !isSendGrid && !isResend) {
+  // 4. SMTP (Gmail or custom server, used only if no API key is provided)
+  if (smtpHost && !isBrevo && !isSendGrid && !isResend) {
     const smtpPort = config.smtpPort || process.env.SMTP_PORT || 465;
     const smtpUser = config.smtpUser || process.env.SMTP_USER;
     const smtpPass = config.smtpPass || process.env.SMTP_PASS;
@@ -660,7 +718,14 @@ async function sendTicketReceipt(ticket, config = {}, baseUrl = 'https://banda-n
     throw new Error('Buyer email is missing; cannot send receipt.');
   }
 
-  const subject = `🎺 Your Ticket to Banda Night 2027 (${ticket.ticketId})`;
+  // Use different subject lines depending on payment state:
+  // - Venmo pending: prompt to pay (not a confirmed ticket)
+  // - Paid / Stripe confirmed: official pass delivery
+  const isPending = ticket.paymentStatus === 'VENMO_PENDING' || config.isPendingEmail;
+  const subject = isPending
+    ? `⏳ Action Required — Complete Your Venmo Payment · Banda Night 2027 (${ticket.ticketId})`
+    : `🎟 Your Ticket is Activated — Banda Night 2027 (${ticket.ticketId})`;
+
   const html = buildReceiptHtml(ticket, config, baseUrl);
   const text = buildReceiptText(ticket, config, baseUrl);
 

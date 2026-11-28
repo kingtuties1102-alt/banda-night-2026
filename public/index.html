@@ -2420,8 +2420,14 @@
           }
 
           if (passInstructionText) {
-            passInstructionText.innerHTML = '⚠️ <strong>QR Pass Locked:</strong> Your scannable admission QR code will automatically unlock once your Venmo payment is confirmed by chapter organizers.';
+            passInstructionText.innerHTML = '⚠️ <strong>QR Pass Locked:</strong> Your scannable admission QR code and email ticket will automatically unlock once your Venmo payment is confirmed by chapter organizers.';
             passInstructionText.style.color = '#fde047';
+          }
+          const passEmailNotice = document.getElementById('passEmailNotice');
+          if (passEmailNotice) {
+            passEmailNotice.innerHTML = '⏳ <strong>Ticket Email Pending Payment:</strong> Your official QR ticket will be emailed to <strong id="passBuyerEmail" style="color:#ffffff;"></strong> as soon as your Venmo transfer is verified.';
+            const emailSpan = document.getElementById('passBuyerEmail');
+            if (emailSpan) emailSpan.textContent = t.buyerEmail || 'your email';
           }
 
           // Background poll every 4 seconds: if organizer confirms payment, instantly reveal QR code
@@ -2457,6 +2463,12 @@
           if (passInstructionText) {
             passInstructionText.innerHTML = 'Show this QR code at the entrance. Each QR code is uniquely encrypted and valid for single entry.';
             passInstructionText.style.color = 'var(--silver-500)';
+          }
+          const passEmailNotice = document.getElementById('passEmailNotice');
+          if (passEmailNotice) {
+            passEmailNotice.innerHTML = '📧 <strong>Receipt Emailed:</strong> Sent to <strong id="passBuyerEmail" style="color:#ffffff;"></strong>.<br><span style="font-size:0.75rem; color:#c084fc;">Check your spam/junk folder if not in inbox within 2 minutes.</span>';
+            const emailSpan = document.getElementById('passBuyerEmail');
+            if (emailSpan) emailSpan.textContent = t.buyerEmail || 'your email';
           }
 
           // Build unique QR code admission payload

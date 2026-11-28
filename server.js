@@ -344,7 +344,10 @@ const TIERS = [
 ];
 
 function getCurrentTierInfo(db) {
-  const activeTickets = (db.tickets || []).filter(t => t.paymentStatus !== 'REFUNDED');
+  // Only count PAID tickets toward tier capacity.
+  // VENMO_PENDING tickets reserve a slot temporarily but do NOT fill the tier —
+  // so the tier only closes once real payments are confirmed by admin.
+  const activeTickets = (db.tickets || []).filter(t => t.paymentStatus === 'PAID');
   const totalSold = activeTickets.length;
 
   // maxActiveTierIndex: highest tier index you've manually unlocked (default 0 = Early Bird only)
@@ -991,7 +994,7 @@ const server = http.createServer(async (req, res) => {
           checkedInAt: null,
           paymentStatus: method === 'venmo' ? 'VENMO_PENDING' : 'PAID',
           method: method.toUpperCase(),
-          emailStatus: 'SENDING',
+          emailStatus: method === 'venmo' ? 'PENDING_PAYMENT' : 'SENDING',
           emailSentAt: null,
           emailError: null,
         };
@@ -1020,49 +1023,11 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify({ error: lockErr.message || 'Server error processing purchase. Please try again.' }));
     }
 
-    const { ticket, tierPrice, emailConfig, venmoUser, smsConfig } = purchaseResult;
+    const { ticket, tierPrice, venmoUser } = purchaseResult;
 
-    // Asynchronously dispatch email receipt to attendee
-    sendTicketReceipt(ticket, {
-      ...emailConfig,
-      venmoUsername: venmoUser,
-    }, BASE_URL)
-      .then(result => {
-        updateTicketFields(ticket.ticketId, {
-          emailStatus: result.simulated ? 'SIMULATED' : 'SENT',
-          emailSentAt: new Date().toISOString(),
-          emailProvider: result.provider || 'simulated',
-        });
-        console.log(`[RECEIPT] Email dispatched to ${ticket.buyerEmail} for ticket ${ticket.ticketId}`);
-      })
-      .catch(emailErr => {
-        console.error(`[RECEIPT ERROR] Failed to send email to ${ticket.buyerEmail}:`, emailErr.message);
-        updateTicketFields(ticket.ticketId, {
-          emailStatus: 'FAILED',
-          emailError: emailErr.message,
-        });
-      });
-
-    // Asynchronously dispatch SMS receipt to attendee (if phone provided + Twilio configured)
-    sendSmsReceipt(ticket, smsConfig, BASE_URL)
-      .then(result => {
-        if (!result.skipped) {
-          updateTicketFields(ticket.ticketId, {
-            smsStatus: 'SENT',
-            smsSentAt: new Date().toISOString(),
-          });
-          console.log(`[SMS] Text receipt sent to ${ticket.buyerPhone} for ticket ${ticket.ticketId}`);
-        } else {
-          console.log(`[SMS] Skipped for ${ticket.ticketId}: ${result.reason}`);
-        }
-      })
-      .catch(smsErr => {
-        console.error(`[SMS ERROR] Failed to send SMS to ${ticket.buyerPhone}:`, smsErr.message);
-        updateTicketFields(ticket.ticketId, {
-          smsStatus: 'FAILED',
-          smsError: smsErr.message,
-        });
-      });
+    // Venmo tickets stay VENMO_PENDING with locked QR and NO email/SMS sent yet.
+    // The real ticket email & SMS are sent ONLY after payment is confirmed by admin.
+    console.log(`[PURCHASE] Venmo pending reservation created for ${ticket.ticketId} (${ticket.buyerEmail}) — awaiting payment confirmation before sending pass.`);
 
     const venmoNote = `Banda Night - ${ticket.ticketId} - ${ticket.buyerName}`;
     const venmoDeepLink = `https://venmo.com/${venmoUser}?txn=pay&amount=${tierPrice}&note=${encodeURIComponent(venmoNote)}`;
@@ -1253,16 +1218,29 @@ const server = http.createServer(async (req, res) => {
       siteLocked: isSiteLocked(db),
       venmoUsername: venmoUser,
       adminPinConfigured: Boolean(db.config?.adminPin || process.env.ADMIN_PIN),
-      email: {
-        provider: emailConfig.provider || (emailConfig.resendApiKey ? (emailConfig.resendApiKey.startsWith('SG.') ? 'sendgrid' : 'resend') : (emailConfig.smtpHost ? 'smtp' : 'simulated')),
-        resendApiKey: emailConfig.resendApiKey ? '••••••••' + emailConfig.resendApiKey.slice(-4) : '',
-        apiKeyType: emailConfig.resendApiKey ? (emailConfig.resendApiKey.startsWith('SG.') ? 'sendgrid' : (emailConfig.resendApiKey.startsWith('re_') ? 'resend' : 'other')) : '',
-        smtpHost: emailConfig.smtpHost || '',
-        smtpPort: emailConfig.smtpPort || 465,
-        smtpUser: emailConfig.smtpUser || '',
-        hasSmtpPass: Boolean(emailConfig.smtpPass),
-        fromEmail: emailConfig.fromEmail || '',
-      },
+      email: (() => {
+        const storedKey = (emailConfig.resendApiKey || emailConfig.brevoApiKey || emailConfig.sendgridApiKey || '').trim();
+        const envKey = (process.env.BREVO_API_KEY || process.env.SENDGRID_API_KEY || process.env.RESEND_API_KEY || '').trim();
+        const activeKey = storedKey || envKey;
+        const detectKeyType = (k) => {
+          if (!k) return '';
+          if (k.startsWith('xkeysib-')) return 'brevo';
+          if (k.startsWith('SG.')) return 'sendgrid';
+          if (k.startsWith('re_')) return 'resend';
+          return 'other';
+        };
+        const apiKeyType = detectKeyType(activeKey);
+        return {
+          provider: emailConfig.provider || (activeKey ? 'resend' : (emailConfig.smtpHost ? 'smtp' : 'simulated')),
+          resendApiKey: storedKey ? '••••••••' + storedKey.slice(-4) : (envKey ? '••••(env)' : ''),
+          apiKeyType,
+          smtpHost: emailConfig.smtpHost || '',
+          smtpPort: emailConfig.smtpPort || 465,
+          smtpUser: emailConfig.smtpUser || '',
+          hasSmtpPass: Boolean(emailConfig.smtpPass),
+          fromEmail: emailConfig.fromEmail || '',
+        };
+      })(),
       twilio: {
         accountSid: twilioConfig.accountSid ? '••••••••' + twilioConfig.accountSid.slice(-4) : (TWILIO_ACCOUNT_SID ? '••••(env)' : ''),
         hasAuthToken: Boolean(twilioConfig.authToken || TWILIO_AUTH_TOKEN),
@@ -1668,13 +1646,34 @@ const server = http.createServer(async (req, res) => {
       ...emailConfig,
       venmoUsername: smsConfigVenmo.venmoUsername,
     }, BASE_URL)
-      .then(() => console.log(`[RECEIPT] Activated pass emailed to ${ticket.buyerEmail} on Venmo confirm.`))
-      .catch(e => console.error('[RECEIPT ERROR] Failed to send activated pass:', e.message));
+      .then(result => {
+        updateTicketFields(ticket.ticketId, {
+          emailStatus: result.simulated ? 'SIMULATED' : 'SENT',
+          emailSentAt: new Date().toISOString(),
+          emailProvider: result.provider || 'simulated',
+        });
+        console.log(`[RECEIPT] Activated pass emailed to ${ticket.buyerEmail} on Venmo confirm.`);
+      })
+      .catch(e => {
+        console.error('[RECEIPT ERROR] Failed to send activated pass:', e.message);
+        updateTicketFields(ticket.ticketId, {
+          emailStatus: 'FAILED',
+          emailError: e.message,
+        });
+      });
 
     // Also fire SMS with unlocked QR pass link
     sendSmsReceipt(ticket, smsConfigVenmo, BASE_URL)
-      .then(r => { if (!r.skipped) console.log(`[SMS] Unlocked QR pass SMS sent to ${ticket.buyerPhone} on Venmo confirm.`); })
-      .catch(e => console.error('[SMS ERROR] Venmo confirm SMS failed:', e.message));
+      .then(r => {
+        if (!r.skipped) {
+          updateTicketFields(ticket.ticketId, { smsStatus: 'SENT', smsSentAt: new Date().toISOString() });
+          console.log(`[SMS] Unlocked QR pass SMS sent to ${ticket.buyerPhone} on Venmo confirm.`);
+        }
+      })
+      .catch(e => {
+        console.error('[SMS ERROR] Venmo confirm SMS failed:', e.message);
+        updateTicketFields(ticket.ticketId, { smsStatus: 'FAILED', smsError: e.message });
+      });
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ success: true, ticketId, ticket }));
